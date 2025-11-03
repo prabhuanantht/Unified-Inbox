@@ -33,7 +33,15 @@ export async function GET(req: NextRequest) {
       take: 50, // Last 50 messages for context
     });
 
-    if (messages.length === 0) {
+    type MessageLite = {
+      direction: 'INBOUND' | 'OUTBOUND';
+      channel: string;
+      createdAt: Date;
+      content: string | null;
+    };
+    const typedMessages = messages as unknown as MessageLite[];
+
+    if (typedMessages.length === 0) {
       return NextResponse.json({
         summary: 'No conversation history available yet.',
       });
@@ -43,9 +51,9 @@ export async function GET(req: NextRequest) {
     
     if (!apiKey) {
       // Fallback: generate a basic summary from message patterns
-      const inboundCount = messages.filter(m => m.direction === 'INBOUND').length;
-      const outboundCount = messages.filter(m => m.direction === 'OUTBOUND').length;
-      const channels = [...new Set(messages.map(m => m.channel))];
+      const inboundCount = typedMessages.filter((m: MessageLite) => m.direction === 'INBOUND').length;
+      const outboundCount = typedMessages.filter((m: MessageLite) => m.direction === 'OUTBOUND').length;
+      const channels = [...new Set(typedMessages.map((m: MessageLite) => m.channel))];
       
       return NextResponse.json({
         summary: `Contact has ${messages.length} messages across ${channels.length} channel(s) (${channels.join(', ')}). ${inboundCount} incoming, ${outboundCount} outgoing messages.`,
@@ -53,10 +61,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Format conversation for AI
-    const conversationText = messages
+    const conversationText = typedMessages
       .slice()
       .reverse() // Reverse to chronological order
-      .map((msg, idx) => {
+      .map((msg: MessageLite, idx: number) => {
         const role = msg.direction === 'INBOUND' ? 'Customer' : 'Agent';
         const date = new Date(msg.createdAt).toLocaleDateString();
         return `${idx + 1}. [${date}] ${role} (${msg.channel}): ${msg.content?.substring(0, 200)}`;
@@ -73,7 +81,7 @@ export async function GET(req: NextRequest) {
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
     // Prefer newer models when available; allow override via env
-    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `Analyze the following customer conversation history and provide a concise summary (2-3 sentences) focusing on:
@@ -99,16 +107,16 @@ Provide a clear, professional summary that would help a new team member quickly 
       console.error('Gemini API error:', geminiError);
       
       // Fallback summary
-      const inboundCount = messages.filter(m => m.direction === 'INBOUND').length;
-      const outboundCount = messages.filter(m => m.direction === 'OUTBOUND').length;
-      const channels = [...new Set(messages.map(m => m.channel))];
-      const recentTopics = messages
+      const inboundCount = typedMessages.filter((m: MessageLite) => m.direction === 'INBOUND').length;
+      const outboundCount = typedMessages.filter((m: MessageLite) => m.direction === 'OUTBOUND').length;
+      const channels = [...new Set(typedMessages.map((m: MessageLite) => m.channel))];
+      const recentTopics = typedMessages
         .slice(0, 5)
-        .map(m => m.content?.substring(0, 50))
-        .filter(Boolean);
+        .map((m: MessageLite) => m.content?.substring(0, 50))
+        .filter((t): t is string => Boolean(t));
 
       return NextResponse.json({
-        summary: `Customer interaction summary: ${messages.length} total messages across ${channels.join(', ')}. Active communication with ${inboundCount} incoming and ${outboundCount} outgoing messages. Recent topics include: ${recentTopics.join('; ')}.`,
+        summary: `Customer interaction summary: ${typedMessages.length} total messages across ${channels.join(', ')}. Active communication with ${inboundCount} incoming and ${outboundCount} outgoing messages. Recent topics include: ${recentTopics.join('; ')}.`,
         _fallback: true,
       });
     }

@@ -19,17 +19,20 @@ export function EnhancedNoteEditor({ contactId, onAddNote, isLoading }: Enhanced
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mentionListRef = useRef<HTMLDivElement>(null);
 
+  // Minimal user type for mentions
+  interface UserLite { id: string; name: string; email: string }
+
   // Fetch users for mentions
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<UserLite[]>({
     queryKey: ['users'],
-    queryFn: async () => {
+    queryFn: async (): Promise<UserLite[]> => {
       const res = await fetch('/api/users');
       if (!res.ok) throw new Error('Failed to fetch users');
       return res.json();
     },
   });
 
-  const filteredUsers = users.filter(user =>
+  const filteredUsers = users.filter((user: UserLite) =>
     user.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(mentionQuery.toLowerCase())
   );
@@ -58,7 +61,7 @@ export function EnhancedNoteEditor({ contactId, onAddNote, isLoading }: Enhanced
     setShowMentions(false);
   };
 
-  const insertMention = (user: typeof users[0]) => {
+  const insertMention = (user: UserLite) => {
     if (!textareaRef.current) return;
 
     const textBeforeCursor = content.substring(0, cursorPosition);
@@ -144,6 +147,7 @@ export function EnhancedNoteEditor({ contactId, onAddNote, isLoading }: Enhanced
           value={content}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          data-contact-id={contactId}
           placeholder="Add a note about this contact... Use @username for mentions"
           className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
           rows={3}
@@ -157,7 +161,7 @@ export function EnhancedNoteEditor({ contactId, onAddNote, isLoading }: Enhanced
           >
             {filteredUsers.length > 0 ? (
               <div className="py-2">
-                {filteredUsers.map((user) => (
+                {filteredUsers.map((user: UserLite) => (
                   <button
                     key={user.id}
                     onClick={() => insertMention(user)}
