@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Plus, Mail, Phone, Tag, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ContactProfileModal } from './ContactProfileModal';
 
 export function ContactsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [showNewContact, setShowNewContact] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: contacts, isLoading } = useQuery({
@@ -86,12 +88,16 @@ export function ContactsView() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {filteredContacts?.map((contact: any) => (
+                  {filteredContacts?.map((contact: any) => (
                 <button
                   key={contact.id}
                   onClick={() => {
                     setSelectedContact(contact.id);
                     setShowNewContact(false);
+                  }}
+                  onDoubleClick={() => {
+                    setSelectedContact(contact.id);
+                    setShowProfileModal(true);
                   }}
                   className={`w-full p-4 text-left hover:bg-accent transition-colors ${
                     selectedContact === contact.id ? 'bg-primary/10' : ''
@@ -151,6 +157,7 @@ export function ContactsView() {
             contact={contact}
             onDelete={() => deleteContact.mutate(contact.id)}
             onUpdate={() => queryClient.invalidateQueries({ queryKey: ['contacts'] })}
+            onViewProfile={() => setShowProfileModal(true)}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -158,6 +165,15 @@ export function ContactsView() {
           </div>
         )}
       </div>
+
+      {/* Contact Profile Modal */}
+      {selectedContact && (
+        <ContactProfileModal
+          open={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          contactId={selectedContact}
+        />
+      )}
     </div>
   );
 }
@@ -310,7 +326,7 @@ function NewContactForm({ onClose, onSuccess }: any) {
   );
 }
 
-function ContactDetail({ contact, onDelete, onUpdate }: any) {
+function ContactDetail({ contact, onDelete, onUpdate, onViewProfile }: any) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: contact.name || '',
@@ -349,6 +365,14 @@ function ContactDetail({ contact, onDelete, onUpdate }: any) {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-foreground">{contact.name || 'Unnamed Contact'}</h2>
           <div className="flex gap-2">
+            {onViewProfile && (
+              <button
+                onClick={onViewProfile}
+                className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+              >
+                View Profile
+              </button>
+            )}
             <button
               onClick={() => setIsEditing(!isEditing)}
               className="p-2 text-muted-foreground hover:bg-accent rounded-lg"
