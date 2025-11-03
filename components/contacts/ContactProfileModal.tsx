@@ -119,21 +119,13 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span className="text-2xl font-bold">Contact Profile</span>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-secondary rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </DialogTitle>
+          <DialogTitle className="text-2xl font-bold">Contact Profile</DialogTitle>
         </DialogHeader>
 
         {contact && (
           <div className="space-y-6">
             {/* Contact Header */}
-            <div className="flex items-start justify-between border-b border-border pb-4">
+            <div className="grid gap-4 border-b border-border pb-4 grid-cols-1 lg:grid-cols-[1fr,auto] items-start">
               <div className="flex-1">
                 <h3 className="text-2xl font-semibold text-foreground mb-2">
                   {contact.name || 'Unnamed Contact'}
@@ -333,7 +325,7 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
 
 function AISummaryCard({ isLoading, summary, onGenerate }: any) {
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4 min-w-[300px]">
+    <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4 w-full sm:max-w-sm">
       <div className="flex items-center gap-2 mb-2">
         <Sparkles className="w-5 h-5 text-purple-600" />
         <h4 className="font-semibold text-foreground">AI Summary</h4>
@@ -344,7 +336,7 @@ function AISummaryCard({ isLoading, summary, onGenerate }: any) {
           <span className="text-sm">Analyzing conversation...</span>
         </div>
       ) : summary ? (
-        <p className="text-sm text-foreground">{summary}</p>
+        <p className="text-sm text-foreground break-words">{summary}</p>
       ) : (
         <div>
           <p className="text-sm text-muted-foreground mb-2">
