@@ -45,7 +45,73 @@ export async function GET(req: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     });
 
-    return NextResponse.json(contacts);
+    // Opportunistically backfill Slack names if we only have IDs
+    const slackIdRegex = /^[UW][A-Z0-9]{8,}$/; // Slack user or workspace IDs typically start with U/W
+    try {
+      const needsBackfill = contacts.filter((c: any) => {
+        const handles = c.socialHandles || {};
+        const slack = handles.slack as string | undefined;
+        if (!slack) return false;
+        const looksLikeId = slackIdRegex.test(c.name || '') || !c.name || c.name.startsWith('Slack User');
+        return looksLikeId;
+      });
+
+      if (needsBackfill.length && process.env.SLACK_BOT_TOKEN) {
+        const { SlackIntegration } = await import('@/lib/integrations/slack');
+        const slack = new SlackIntegration();
+        for (const c of needsBackfill) {
+          const slackId = (c.socialHandles as any)?.slack;
+          try {
+            const info = await slack.getUserInfo(slackId);
+            if (info?.name && info.name !== c.name) {
+              await prisma.contact.update({
+                where: { id: c.id },
+                data: { name: info.name },
+              });
+              c.name = info.name;
+            }
+          } catch {
+            // ignore failures and keep ID fallback
+          }
+        }
+      }
+    } catch {
+      // ignore backfill errors silently
+    }
+
+    // Deduplicate by stable external keys: social handles -> email -> phone -> id
+    const byKey = new Map<string, any>();
+    for (const c of contacts) {
+      const handles = (c as any).socialHandles || {};
+      const key =
+        handles.slack ||
+        handles.instagram ||
+        handles.facebook ||
+        handles.twitter ||
+        c.email ||
+        c.phone ||
+        c.id; // fallback
+
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, c);
+        continue;
+      }
+
+      // Merge: keep the most recently updated contact; also keep latest message
+      const newer = (existing.updatedAt > c.updatedAt) ? existing : c;
+      const older = (existing.updatedAt > c.updatedAt) ? c : existing;
+      // Merge last message preview
+      const newerMsg = newer.messages?.[0];
+      const olderMsg = older.messages?.[0];
+      const latestMsg = [newerMsg, olderMsg].filter(Boolean).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      const merged = { ...newer, messages: latestMsg ? [latestMsg] : [] };
+      byKey.set(key, merged);
+    }
+
+    const deduped = Array.from(byKey.values());
+
+    return NextResponse.json(deduped);
   } catch (error) {
     console.error('Error fetching contacts:', error);
     return NextResponse.json(

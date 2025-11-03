@@ -53,15 +53,20 @@ export async function GET(req: NextRequest) {
     });
 
     // Calculate response times by grouping messages by contact
-    const contactMessages = new Map<string, typeof allMessages>();
-    allMessages.forEach(msg => {
+    type MessageForAnalytics = {
+      createdAt: Date;
+      direction: string;
+      contactId: string;
+    };
+    const contactMessages = new Map<string, MessageForAnalytics[]>();
+    allMessages.forEach((msg: MessageForAnalytics) => {
       const existing = contactMessages.get(msg.contactId) || [];
       existing.push(msg);
       contactMessages.set(msg.contactId, existing);
     });
 
     const responseTimes: number[] = [];
-    contactMessages.forEach(msgs => {
+    contactMessages.forEach((msgs: MessageForAnalytics[]) => {
       // Find sequences of inbound followed by outbound
       for (let i = 0; i < msgs.length - 1; i++) {
         if (msgs[i].direction === 'INBOUND' && msgs[i + 1].direction === 'OUTBOUND') {
@@ -89,7 +94,7 @@ export async function GET(req: NextRequest) {
 
     // Daily message volume
     const dailyMessagesMap = new Map<string, number>();
-    allMessages.forEach((msg) => {
+    allMessages.forEach((msg: MessageForAnalytics) => {
       const date = msg.createdAt.toISOString().split('T')[0];
       dailyMessagesMap.set(date, (dailyMessagesMap.get(date) || 0) + 1);
     });
@@ -99,8 +104,8 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     // Calculate outbound vs inbound messages
-    const outboundCount = allMessages.filter(m => m.direction === 'OUTBOUND').length;
-    const inboundCount = allMessages.filter(m => m.direction === 'INBOUND').length;
+    const outboundCount = allMessages.filter((m: MessageForAnalytics) => m.direction === 'OUTBOUND').length;
+    const inboundCount = allMessages.filter((m: MessageForAnalytics) => m.direction === 'INBOUND').length;
 
     return NextResponse.json({
       messagesByChannel,

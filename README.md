@@ -4,387 +4,184 @@ A full-stack Next.js application for managing customer communications across SMS
 
 ## 🎯 Features
 
-- **Multi-Channel Messaging**: Support for SMS, WhatsApp, Email, Twitter DMs, and Facebook Messenger
-- **Unified Inbox**: Kanban-style view with threads grouped by contact
+- **Multi-Channel Messaging**: Support for SMS, WhatsApp, Email, Twitter DMs, Facebook Messenger, Slack
+- **Unified Inbox**: Feed + contact threads grouped by contact
 - **Contact Management**: Centralized contact profiles with complete message history
 - **Message Scheduling**: Schedule messages and automate follow-ups
-- **Real-Time Collaboration**: Team notes with @mentions and real-time presence
-- **Analytics Dashboard**: Track engagement metrics, response times, and channel performance
-- **Role-Based Access**: Admin, Editor, and Viewer roles with appropriate permissions
+- **Team Notes**: Notes with @mentions
+- **Analytics Dashboard**: Engagement metrics and response times
+- **Role-Based Access**: Admin, Editor, Viewer
 
 ## 🛠️ Tech Stack
 
-- **Frontend/Backend**: Next.js 14+ (App Router, TypeScript)
-- **Database**: PostgreSQL via Prisma ORM
-- **Authentication**: Better Auth (credentials + Google OAuth)
-- **Integrations**: 
-  - Twilio SDK (SMS/WhatsApp)
-  - Resend (Email - optional)
-  - Twitter API v2 (optional)
-  - Facebook Graph API (optional)
+- **App**: Next.js 14+ (App Router, TypeScript)
+- **DB**: PostgreSQL with Prisma ORM
+- **Auth**: Better Auth (credentials + Google OAuth)
+- **Integrations**:
+  - Twilio (SMS/WhatsApp)
+  - Resend (Email)
+  - Slack Web API (DMs/channels)
+  - Facebook/Instagram (Graph API)
+  - Cloudinary (media hosting)
 - **Styling**: Tailwind CSS
-- **State Management**: React Query
-- **Validation**: Zod
+- **Data**: React Query, Zod
 
 ## 📋 Prerequisites
 
-- Node.js 18+ and npm/yarn
-- PostgreSQL database
-- Twilio account (free trial available)
-- Optional: Google OAuth credentials, Resend API key, social media API keys
+- Node.js 18+
+- PostgreSQL instance
+- Twilio account (for SMS/WhatsApp)
+- Optional: Google OAuth, Resend API key, Slack/Facebook/Twitter keys, Cloudinary account
 
 ## 🚀 Quick Start
 
 ### 1. Clone the Repository
 
-\`\`\`bash
+```bash
 git clone <your-repo-url>
 cd unified-inbox
-\`\`\`
+```
 
 ### 2. Install Dependencies
 
-\`\`\`bash
+```bash
 npm install
 # or
 yarn install
-\`\`\`
+```
 
 ### 3. Set Up Environment Variables
 
-Copy the example environment file:
+Copy example and fill values:
 
-\`\`\`bash
+```bash
 cp .env.example .env
-\`\`\`
+```
 
-Edit \`.env\` and fill in your credentials:
+Edit `.env`:
 
-\`\`\`env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/unified_inbox"
+```env
+# Database (choose ONE of the options below)
+# Direct Postgres URL (works everywhere)
+# DATABASE_URL="postgresql://user:password@localhost:5432/unified_inbox?schema=public"
+
+# OR Prisma Accelerate URL (faster reads/writes)
+# DATABASE_URL="prisma+postgres://accelerate.prisma-data.net/?api_key=..."
 
 # Better Auth
 BETTER_AUTH_SECRET="your-secret-key-min-32-characters"
 BETTER_AUTH_URL="http://localhost:3000"
 
-# Twilio (Required)
+# If using Accelerate for app but NOT for Better Auth, set a direct URL here
+# AUTH_DATABASE_URL="postgresql://user:password@localhost:5432/unified_inbox?schema=public"
+
+# Optional dev bypass (no login needed)
+# DEV_DISABLE_AUTH=true
+
+# Twilio (Required for SMS/WhatsApp)
 TWILIO_ACCOUNT_SID="your-twilio-account-sid"
 TWILIO_AUTH_TOKEN="your-twilio-auth-token"
 TWILIO_PHONE_NUMBER="+1234567890"
 TWILIO_WHATSAPP_NUMBER="whatsapp:+14155238886"
 
-# Optional Integrations
+# Email (Resend)
+RESEND_API_KEY="your-resend-api-key"
+# RESEND_FROM_EMAIL="noreply@yourdomain.com" # use verified domain in production
+
+# Google OAuth
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
-RESEND_API_KEY="your-resend-api-key"
-\`\`\`
+
+# Slack / Meta / Twitter (optional)
+SLACK_BOT_TOKEN="xoxb-..."
+FACEBOOK_APP_ID="..."
+FACEBOOK_APP_SECRET="..."
+TWITTER_API_KEY="..."
+TWITTER_API_SECRET="..."
+
+# Cloudinary (media hosting)
+CLOUDINARY_URL="cloudinary://<key>:<secret>@<cloud_name>"
+```
 
 ### 4. Set Up Database
 
-\`\`\`bash
+```bash
 # Generate Prisma client
 npm run prisma:generate
 
 # Run migrations
 npm run prisma:migrate
 
-# Optional: Open Prisma Studio to view data
+# Optional: open Prisma Studio
 npm run prisma:studio
-\`\`\`
+```
 
 ### 5. Run the Development Server
 
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+Open `http://localhost:3000`.
 
-## 📊 Database Schema (ERD)
-
-\`\`\`mermaid
-erDiagram
-    User ||--o{ Contact : creates
-    User ||--o{ Message : sends
-    User ||--o{ Note : writes
-    User ||--o{ Session : has
-    Contact ||--o{ Message : receives
-    Contact ||--o{ Note : has
-
-    User {
-        string id PK
-        string email UK
-        string name
-        string password
-        enum role
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    Contact {
-        string id PK
-        string userId FK
-        string name
-        string phone
-        string email
-        json socialHandles
-        array tags
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    Message {
-        string id PK
-        string contactId FK
-        string userId FK
-        string senderId FK
-        enum channel
-        enum direction
-        string content
-        enum status
-        json metadata
-        array mediaUrls
-        datetime scheduledFor
-        datetime sentAt
-        datetime deliveredAt
-        datetime readAt
-        datetime createdAt
-        datetime updatedAt
-    }
-
-    Note {
-        string id PK
-        string contactId FK
-        string userId FK
-        string content
-        boolean isPrivate
-        array mentions
-        datetime createdAt
-        datetime updatedAt
-    }
-\`\`\`
-
-## 🔌 Integration Setup
+## 🔌 Integration Setup (Essentials)
 
 ### Twilio (SMS/WhatsApp)
+1. Create an account and get Account SID + Auth Token.
+2. Buy a phone number (SMS/MMS). For WhatsApp, join Sandbox.
+3. Set webhook URL to: `/api/webhooks/twilio` (use your deployed URL in production).
 
-1. Create a free account at [twilio.com/try-twilio](https://www.twilio.com/try-twilio)
-2. Get your Account SID and Auth Token from the dashboard
-3. Buy a phone number with SMS and MMS capabilities
-4. For WhatsApp: Join the Twilio Sandbox by sending "join <sandbox-word>" to +1-415-523-8886
-5. Configure webhook URL in Twilio Console:
-   - Go to Phone Numbers → Manage → Active numbers
-   - Select your number
-   - Under "Messaging", set webhook to: \`https://your-domain.com/api/webhooks/twilio\`
+### Google OAuth
+1. Create OAuth credentials in Google Cloud Console.
+2. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`.
 
-### Google OAuth (Optional)
+### Cloudinary (Media Uploads)
+1. Add `CLOUDINARY_URL` in `.env`.
+2. The app uploads attachments to `/api/uploads/cloudinary` and uses the returned `secure_url` for Twilio media.
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: \`http://localhost:3000/api/auth/callback/google\`
+## 📁 Project Structure (high-level)
 
-### Resend (Email - Optional)
-
-1. Sign up at [resend.com](https://resend.com)
-2. Get your API key from the dashboard
-3. Verify your domain for production use
-
-## 📁 Project Structure
-
-\`\`\`
+```text
 unified-inbox/
 ├── app/
 │   ├── api/
-│   │   ├── auth/[...auth]/     # Authentication endpoints
-│   │   ├── contacts/           # Contact CRUD operations
-│   │   ├── messages/           # Message send/receive
-│   │   ├── notes/              # Internal notes
-│   │   ├── analytics/          # Analytics data
-│   │   └── webhooks/           # Webhook handlers
-│   ├── dashboard/              # Main dashboard page
-│   ├── layout.tsx              # Root layout
-│   ├── page.tsx                # Landing page
-│   ├── providers.tsx           # React Query provider
-│   └── globals.css             # Global styles
+│   │   ├── auth/[...auth]/
+│   │   ├── contacts/
+│   │   ├── messages/
+│   │   ├── uploads/cloudinary/
+│   │   └── webhooks/
+│   ├── dashboard/
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── providers.tsx
 ├── components/
-│   ├── inbox/                  # Inbox components
-│   │   ├── InboxView.tsx
-│   │   ├── ThreadList.tsx
-│   │   ├── MessageThread.tsx
-│   │   └── Composer.tsx
-│   └── layout/                 # Layout components
-│       ├── Sidebar.tsx
-│       └── Header.tsx
+│   └── inbox/
 ├── lib/
-│   ├── integrations/           # Channel integrations
-│   │   ├── base.ts
-│   │   ├── twilio.ts
-│   │   └── index.ts
-│   ├── auth.ts                 # Auth configuration
-│   ├── prisma.ts               # Prisma client
-│   ├── scheduler.ts            # Message scheduler
-│   ├── utils.ts                # Utility functions
-│   └── validations.ts          # Zod schemas
-├── prisma/
-│   └── schema.prisma           # Database schema
-├── .env.example                # Environment variables template
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-└── README.md
-\`\`\`
+│   ├── integrations/
+│   ├── auth.ts
+│   ├── auth-prisma.ts
+│   ├── prisma.ts
+│   ├── cloudinary.ts
+│   └── validations.ts
+└── prisma/schema.prisma
+```
 
-## 🔐 Security Considerations
+## ⚙️ Notes on Auth & Accelerate
 
-- All API routes should validate authentication tokens
-- Webhook endpoints must verify signatures (Twilio, Facebook, etc.)
-- Environment variables are never committed to git
-- Passwords are hashed using Better Auth's built-in security
-- Private notes use encryption (implement Prisma middleware)
-- CORS is configured appropriately for production
-
-## 📊 Integration Comparison
-
-| Channel | Latency | Cost (per msg) | Reliability | Rich Media | Two-Way |
-|---------|---------|----------------|-------------|------------|---------|
-| SMS | < 1s | $0.0075 | 99.9% | ❌ | ✅ |
-| WhatsApp | < 2s | $0.005-0.01 | 99.5% | ✅ | ✅ |
-| Email | 1-5s | $0.0001 | 98% | ✅ | ✅ |
-| Twitter DM | 2-5s | Free | 95% | ✅ | ✅ |
-| Facebook | 2-5s | Free | 95% | ✅ | ✅ |
-
-## 🎨 Key Architectural Decisions
-
-### 1. Channel Integration Pattern
-- **Factory Pattern**: \`createSender(channel)\` abstracts channel-specific logic
-- **Benefits**: Easy to add new channels, consistent interface, testable
-- **Trade-off**: Additional abstraction layer
-
-### 2. Message Scheduling
-- **Approach**: Postgres-based with cron job processor
-- **Benefits**: Simple, reliable, no external dependencies
-- **Trade-off**: Not ideal for high-scale (would need Redis/Bull)
-
-### 3. Real-Time Updates
-- **Current**: Polling via React Query
-- **Future**: WebSocket for true real-time (Socket.io or Pusher)
-- **Benefits**: Simpler initial implementation
-- **Trade-off**: Higher bandwidth usage
-
-### 4. Data Normalization
-- **Unified Message Table**: All channels share same schema
-- **Benefits**: Simpler queries, consistent UX
-- **Trade-off**: Channel-specific metadata stored as JSON
-
-### 5. Authentication
-- **Better Auth**: Modern alternative to NextAuth
-- **Benefits**: TypeScript-first, flexible, good DX
-- **Trade-off**: Smaller community than NextAuth
+- If `DATABASE_URL` uses Accelerate (`prisma+postgres://`), Better Auth must use a direct Postgres URL. Set `AUTH_DATABASE_URL`.
+- To work without login locally, set `DEV_DISABLE_AUTH=true` (middleware will skip auth).
 
 ## 🧪 Testing
 
-\`\`\`bash
-# Run linter
+```bash
 npm run lint
-
-# Type checking
 npx tsc --noEmit
-\`\`\`
-
-## 📈 Performance Optimization
-
-- Database indexes on frequently queried fields
-- React Query caching for API responses
-- Lazy loading of contact list
-- Image optimization for media attachments
-- Connection pooling for Prisma
+```
 
 ## 🚢 Deployment
 
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import project in Vercel dashboard
-3. Add environment variables
-4. Deploy
-
-### Docker
-
-\`\`\`bash
-# Build image
-docker build -t unified-inbox .
-
-# Run container
-docker run -p 3000:3000 --env-file .env unified-inbox
-\`\`\`
-
-### Database Hosting
-
-- **Supabase**: Free tier with Postgres
-- **Neon**: Serverless Postgres
-- **Railway**: Simple deployment
-
-## 📝 API Documentation
-
-### Contacts
-
-- \`GET /api/contacts\` - List all contacts
-- \`POST /api/contacts\` - Create contact
-- \`GET /api/contacts/[id]\` - Get contact details
-- \`PATCH /api/contacts/[id]\` - Update contact
-- \`DELETE /api/contacts/[id]\` - Delete contact
-
-### Messages
-
-- \`GET /api/messages?contactId={id}\` - Get messages for contact
-- \`POST /api/messages\` - Send a message
-
-### Notes
-
-- \`GET /api/notes?contactId={id}\` - Get notes for contact
-- \`POST /api/notes\` - Create a note
-
-### Analytics
-
-- \`GET /api/analytics?days={30}\` - Get analytics data
-
-### Webhooks
-
-- \`POST /api/webhooks/twilio\` - Twilio message webhook
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🆘 Support
-
-For issues and questions:
-- Open a GitHub issue
-- Check existing documentation
-- Review Twilio/Better Auth documentation
-
-## 🎯 Roadmap
-
-- [ ] Voice calling integration (Twilio Voice)
-- [ ] Advanced analytics (cohort analysis, funnels)
-- [ ] Template library for common messages
-- [ ] AI-powered message suggestions
-- [ ] Mobile app (React Native)
-- [ ] Email template builder
-- [ ] Zapier integration
-- [ ] HubSpot two-way sync
-- [ ] Advanced automation rules
-- [ ] Team collaboration features
+- Vercel recommended. Add the same `.env` variables in the dashboard.
+- For media uploads, ensure `CLOUDINARY_URL` is set in production.
 
 ---
 

@@ -1,15 +1,10 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { prisma } from './prisma';
-
-// Verify prisma client is extended (for debugging)
-if (process.env.NODE_ENV === 'development') {
-  console.log('Prisma client type:', typeof prisma);
-  console.log('Has session.findFirst:', typeof (prisma as any).session?.findFirst);
-}
+// Use non-Accelerate client for Better Auth to avoid Accelerate errors in adapter
+import { authPrisma } from './auth-prisma';
 
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, {
+  database: prismaAdapter(authPrisma, {
     provider: 'postgresql',
   }),
   emailAndPassword: {

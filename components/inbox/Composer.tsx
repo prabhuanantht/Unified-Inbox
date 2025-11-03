@@ -87,13 +87,13 @@ export function Composer({ contactId }: ComposerProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch('/api/uploads/cloudinary', {
         method: 'POST',
         body: formData,
       });
 
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({}));
         throw new Error(error.error || 'Upload failed');
       }
 
@@ -124,13 +124,13 @@ export function Composer({ contactId }: ComposerProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch('/api/uploads/cloudinary', {
         method: 'POST',
         body: formData,
       });
 
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({}));
         throw new Error(error.error || 'Upload failed');
       }
 
@@ -197,7 +197,7 @@ export function Composer({ contactId }: ComposerProps) {
           <div className="flex gap-2 flex-wrap">
             {mediaUrls.map((url, index) => (
               <div key={index} className="relative">
-                {url.startsWith('data:image') || url.startsWith('/uploads') ? (
+                {url.match(/\.(png|jpe?g|gif|webp)$/i) ? (
                   <img src={url} alt={`Media ${index + 1}`} className="w-20 h-20 object-cover rounded-lg" />
                 ) : (
                   <div className="w-20 h-20 bg-secondary rounded-lg flex items-center justify-center">
