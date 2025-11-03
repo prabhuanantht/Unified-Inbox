@@ -272,3 +272,70 @@ This section maps the repository to the assignment’s requested structure and d
   - Interact with inbox UI, compose, and AI suggestions without sending
   - Use Prisma Studio to inspect contacts/messages
 
+## ⚖️ Latency, Cost, Reliability by Channel
+
+| Channel | Typical latency | Cost model (high level) | Reliability / limits | Notes & fallbacks |
+| --- | --- | --- | --- | --- |
+| SMS (Twilio) | ~200ms–2s send; delivery varies by carrier | Per-segment outbound; inbound may be billed by region | Carrier filtering, throughput per-number; 1 TPS baseline without upgrades | Use short codes/verified toll-free for higher throughput; fall back to email if SMS fails |
+| WhatsApp (Twilio) | ~300ms–2s | Per message/session pricing | Template approval; session window (24h) | Use pre-approved templates for outbound; fall back to SMS/email when template not allowed |
+| Email (Resend) | ~500ms–3s to accepted; inbox delivery varies | Per send; free tier limits | Spam/DMARC/DKIM affect inboxing | Use verified domain and proper headers; show delivery status updates in thread |
+| Slack | ~150ms–1s | API usage free within workspace limits | Rate limits (chat.postMessage 1 msg/sec per channel typical) | Backoff on 429 with retry-after; queue bursts |
+| Facebook/Instagram | ~300ms–2s | API usage free; business policy limits | 24h customer support window; rate limits | Respect session rules; prompt user to re-initiate outside window |
+| Twitter/X | ~300ms–2s (varies with API tier) | Tiered API pricing | Strict rate limits, enterprise access often required | Gate features behind config; degrade gracefully if unavailable |
+
+Service SLAs and costs vary by account/region. The app surfaces message `status` and timestamps per message and avoids blocking UI on third-party confirmation.
+
+## 🧭 Key Architectural Decisions
+
+- Data fetching: React Query with short polling for live feel; webhooks used for inbound events (Twilio/Resend/Slack/Meta). Server invalidates caches on writes for fast UI updates.
+- Message delivery: Send endpoints return immediately after provider ACK; provider-specific IDs stored for status updates.
+- Media: Cloudinary for durable, CDN-backed media. Messages store `mediaUrls` only.
+- Auth: Better Auth with optional `DEV_DISABLE_AUTH` for local demos; middleware enforces sessions in production.
+- DB: Prisma on Postgres; migrations committed. Optional Prisma Accelerate URL supported via `DATABASE_URL`.
+- AI: Gemini API optional; prompts constrained to recent context for latency and cost control.
+- UX: Sticky thread header; contained scroll to prevent page/footer jumps; AI suggestion chips sized for readability and wrap at container edge.
+
+## 🗺️ System Architecture
+
+```mermaid
+graph LR
+  subgraph Client
+    UI[Next.js App Router UI]
+  end
+
+  subgraph Next.js App
+    API[API Routes (app/api/*)]
+    Auth[Better Auth + Middleware]
+    RQ[React Query Cache]
+  end
+
+  DB[(PostgreSQL)]
+  Prisma[Prisma ORM]
+
+  Cloudinary[(Cloudinary CDN/Storage)]
+  Twilio[(Twilio SMS/WhatsApp/Voice)]
+  Resend[(Resend Email)]
+  Slack[(Slack Web API)]
+  Meta[(Facebook/Instagram Graph API)]
+  Gemini[(Gemini AI)]
+
+  UI -->|fetch/prefetch| API
+  UI --> Auth
+  API --> Prisma
+  Prisma --> DB
+
+  API -->|media uploads| Cloudinary
+  API -->|send| Twilio
+  API -->|send| Resend
+  API -->|send| Slack
+  API -->|send| Meta
+  API -->|summaries/suggestions| Gemini
+
+  Twilio -->|webhooks inbound| API
+  Resend -->|webhooks inbound| API
+  Slack -->|events/webhooks| API
+  Meta -->|webhooks inbound| API
+
+  API -->|invalidate| RQ
+```
+
