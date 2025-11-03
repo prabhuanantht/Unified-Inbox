@@ -190,3 +190,85 @@ npx tsc --noEmit
 ---
 
 Built with ❤️ for Attack Capital Assignment
+
+## 📚 Assignment Mapping (per “Assignment#2 - Associate Position”)
+
+This section maps the repository to the assignment’s requested structure and deliverables. It is intended to make review fast and objective.
+
+### Key Objectives
+- Unify multi-channel communication into a single inbox with per-contact threads
+- Provide message composition, scheduling, notes, and analytics
+- Support role-based access and basic user management
+- Integrate with real-world services (Twilio, Resend, Slack, Meta) with working webhooks
+
+### Quick Setup Steps (Recap)
+1) Clone repo and install deps (see Quick Start)
+2) Configure `.env` (database, auth, Twilio, Resend, Cloudinary, etc.)
+3) Run Prisma migrations and start dev server
+4) Optional: run seed script `npm run seed` (if enabled) to create demo data
+
+### Project Overview
+- App: Next.js App Router with React Query for data fetching and optimistic updates
+- Backend: API routes under `app/api/*` with Prisma-backed Postgres
+- Integrations: Twilio, Resend, Slack, Meta webhooks and send flows
+- UI: Tailwind + shadcn-like primitives, focused on speed and clarity
+
+### 1. Authentication and User Management
+- Auth Provider: Better Auth (credentials + Google OAuth)
+- Files: `app/api/auth/[...auth]/route.ts`, `lib/auth.ts`, `lib/auth-prisma.ts`, `middleware.ts`
+- Sessions: Prisma models under `prisma/schema.prisma` with session update handling
+- RBAC: Lightweight roles in `lib/rbac.ts`; guarded server routes and UI affordances
+
+### 2. Database (Postgres via Prisma)
+- Schema: `prisma/schema.prisma`
+- Migrations: `prisma/migrations/*` (includes contacts, messages, channels, sessions)
+- Scripts: `scripts/check-db.ts`, `scripts/seed.ts`
+- Commands: `npm run prisma:generate`, `npm run prisma:migrate`, `npm run prisma:studio`
+
+### 3. Core UI / Frontend (Next.js)
+- Inbox Views: `components/inbox/*` (`InboxView`, `ThreadList`, `MessageThread`, `Composer`)
+- Analytics: `components/analytics/AnalyticsDashboard.tsx`
+- Layout: `components/layout/*`, `app/layout.tsx`, `app/providers.tsx`
+- Pages: `app/page.tsx`, `app/dashboard/page.tsx`, `app/login/page.tsx`, `app/register/page.tsx`
+
+### 4. Backend Integrations and Features
+- Messaging API: `app/api/messages/route.ts`
+- Contacts API: `app/api/contacts/*`
+- Notes API: `app/api/notes/route.ts`
+- Uploads: `app/api/uploads/cloudinary/route.ts`
+- Webhooks: `app/api/webhooks/*` (Twilio, Resend, Slack, Facebook)
+- AI: `app/api/ai/*` (contact summary and suggestions via Gemini)
+- Scheduling: `lib/scheduler.ts` (+ Twilio call endpoints)
+
+### 5. Code Quality and Documentation
+- Type Safety: TypeScript across app and API routes
+- Validation: `lib/validations.ts` (Zod)
+- Linting/Checks: `npm run lint`, `npx tsc --noEmit`
+- Docs: `README.md`, `ENV_VARIABLES.md`, `EMAIL_SETUP.md`, `WEBHOOK_SETUP.md`, `IMPLEMENTATION_SUMMARY.md`
+
+### Detailed Requirements Coverage
+- Multi-channel messaging (SMS/WhatsApp/Email/Slack/Meta) with unified threads
+- Compose with media uploads, emoji, AI suggestions, scheduling, and voice-call actions
+- Contact profiles with merged identities and analytics dashboard
+- Webhooks for inbound events (Twilio, Resend, Slack, Facebook)
+- RBAC with protected routes, session persistence, and minimal audit via timestamps
+
+### Deliverables Checklist
+- [x] Running Next.js app with unified inbox UI
+- [x] Postgres schema + Prisma migrations committed
+- [x] Working integrations stubs with real send/webhook flows
+- [x] Auth (credentials + Google) with roles
+- [x] Documentation for setup and environment variables
+- [x] Seed/check scripts (optional) and instructions
+
+### Timeline and Submission
+- Local run: `npm run dev` then open `http://localhost:3000`
+- Deployment: Vercel recommended; replicate `.env` in project settings
+- Reviewer notes: See `IMPLEMENTATION_SUMMARY.md` for a concise walkthrough
+
+### Notes for Reviewers
+- If you do not intend to configure Twilio/Resend/Slack/Meta, you can:
+  - Use `DEV_DISABLE_AUTH=true` to skip login for quick UI review
+  - Interact with inbox UI, compose, and AI suggestions without sending
+  - Use Prisma Studio to inspect contacts/messages
+
