@@ -53,7 +53,7 @@ export class MetaFacebookIntegration implements ChannelIntegration {
       const maxPages = 100; // Safety limit
 
       while (nextUrl && pageCount < maxPages) {
-        const conversationsResponse = await fetch(nextUrl);
+        const conversationsResponse: Response = await fetch(nextUrl);
         const conversationsData = await conversationsResponse.json();
         
         if (conversationsData.error) {
@@ -68,7 +68,7 @@ export class MetaFacebookIntegration implements ChannelIntegration {
             let msgPageCount = 0;
             
             while (messagesUrl && msgPageCount < 50) {
-              const msgsResponse = await fetch(messagesUrl);
+              const msgsResponse: Response = await fetch(messagesUrl);
               const msgsData = await msgsResponse.json();
               
               if (msgsData.error) break;
@@ -240,7 +240,7 @@ export class MetaInstagramIntegration implements ChannelIntegration {
       const maxPages = 100;
 
       while (nextUrl && pageCount < maxPages) {
-        const conversationsResponse = await fetch(nextUrl);
+        const conversationsResponse: Response = await fetch(nextUrl);
         const conversationsData = await conversationsResponse.json();
         
         if (conversationsData.error) {
@@ -255,7 +255,7 @@ export class MetaInstagramIntegration implements ChannelIntegration {
             let msgPageCount = 0;
             
             while (messagesUrl && msgPageCount < 50) {
-              const msgsResponse = await fetch(messagesUrl);
+              const msgsResponse: Response = await fetch(messagesUrl);
               const msgsData = await msgsResponse.json();
               
               if (msgsData.error) break;

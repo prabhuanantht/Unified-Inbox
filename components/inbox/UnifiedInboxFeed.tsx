@@ -183,7 +183,7 @@ export function UnifiedInboxFeed() {
                 <span className="hidden sm:inline">New</span>
               </button>
               <button
-                onClick={() => syncMessages.mutate()}
+                onClick={() => syncMessages.mutate(undefined)}
                 disabled={syncMessages.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium"
                 title="Sync All Messages"
@@ -295,7 +295,7 @@ export function UnifiedInboxFeed() {
               <span className="hidden sm:inline">New</span>
             </button>
             <button
-              onClick={() => syncMessages.mutate()}
+              onClick={() => syncMessages.mutate(undefined)}
               disabled={syncMessages.isPending}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium"
               title="Sync All Messages"

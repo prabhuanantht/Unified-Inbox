@@ -45,7 +45,7 @@ export class TwilioSMSIntegration implements ChannelIntegration {
             dateSent: msg.dateSent,
             status: msg.status,
             direction: msg.direction,
-            mediaUrls: msg.mediaUrl ? [msg.mediaUrl] : [],
+            mediaUrls: [],
           });
         }
 
@@ -144,7 +144,7 @@ export class TwilioWhatsAppIntegration implements ChannelIntegration {
             dateSent: msg.dateSent,
             status: msg.status,
             direction: msg.direction,
-            mediaUrls: msg.mediaUrl ? [msg.mediaUrl] : [],
+            mediaUrls: [],
           });
         }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { User as UserIcon, Mail, Shield, Save, Camera } from 'lucide-react';
@@ -131,7 +131,7 @@ export default function ProfilePage() {
               <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as 'VIEWER' | 'EDITOR' | 'ADMIN' })}
                 className="w-full pl-10 pr-3 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="VIEWER">Viewer</option>

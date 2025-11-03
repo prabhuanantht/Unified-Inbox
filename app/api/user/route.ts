@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 
+// Extend session type to include role
+interface SessionWithRole {
+  user: {
+    id: string;
+    email: string;
+    name?: string | null;
+    role?: string;
+  };
+}
+
 async function getDevUser() {
   const email = 'dev@local';
   let user = await prisma.user.findUnique({ where: { email } });
@@ -66,7 +76,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: req.headers }) as SessionWithRole | null;
     
     if (!session) {
       if (process.env.DEV_DISABLE_AUTH === 'true') {
@@ -97,8 +107,13 @@ export async function PATCH(req: NextRequest) {
       allowedFields.name = body.name;
     }
     
-    // Only allow role change if user is admin
-    if (body.role !== undefined && session.user.role === 'ADMIN') {
+    // Only allow role change if user is admin - fetch full user to check role
+    const fullUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    
+    if (body.role !== undefined && fullUser?.role === 'ADMIN') {
       allowedFields.role = body.role;
     }
 
