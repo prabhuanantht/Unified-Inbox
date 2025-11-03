@@ -72,7 +72,9 @@ export async function GET(req: NextRequest) {
 
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Prefer newer models when available; allow override via env
+    const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `Analyze the following customer conversation history and provide a concise summary (2-3 sentences) focusing on:
 1. Key topics discussed
@@ -107,6 +109,7 @@ Provide a clear, professional summary that would help a new team member quickly 
 
       return NextResponse.json({
         summary: `Customer interaction summary: ${messages.length} total messages across ${channels.join(', ')}. Active communication with ${inboundCount} incoming and ${outboundCount} outgoing messages. Recent topics include: ${recentTopics.join('; ')}.`,
+        _fallback: true,
       });
     }
   } catch (error) {

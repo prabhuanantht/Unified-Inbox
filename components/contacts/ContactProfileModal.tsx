@@ -66,15 +66,23 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create note');
+      if (!res.ok) {
+        try {
+          const err = await res.json();
+          throw new Error(err?.error || 'Failed to create note');
+        } catch {
+          throw new Error('Failed to create note');
+        }
+      }
       return res.json();
     },
     onSuccess: () => {
       toast.success('Note created successfully');
       queryClient.invalidateQueries({ queryKey: ['notes', contactId] });
     },
-    onError: () => {
-      toast.error('Failed to create note');
+    onError: (error) => {
+      const msg = error instanceof Error ? error.message : 'Failed to create note';
+      toast.error(msg);
     },
   });
 
