@@ -349,7 +349,7 @@ function AISummaryCard({ isLoading, summary, onGenerate }: any) {
       ) : (
         <div>
           <p className="text-sm text-muted-foreground mb-2">
-            Get an AI-powered summary of this contact's conversation history
+            Get an AI-powered summary of this contact&apos;s conversation history
           </p>
           <button
             onClick={() => onGenerate()}

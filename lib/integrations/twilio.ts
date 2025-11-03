@@ -26,7 +26,7 @@ export class TwilioSMSIntegration implements ChannelIntegration {
       
       const allMessages: any[] = [];
       let hasMore = true;
-      let currentLimit = limit;
+      const currentLimit = limit;
 
       // Twilio paginates automatically, we need to fetch in batches
       while (hasMore && allMessages.length < limit) {
@@ -65,10 +65,17 @@ export class TwilioSMSIntegration implements ChannelIntegration {
    */
   async send(params: SendParams): Promise<SendResult> {
     try {
+      // Validate media URLs: Twilio requires publicly accessible URLs, not base64/data URIs
+      if (params.mediaUrls?.some(u => u.startsWith('data:') || u.startsWith('base64,'))) {
+        return {
+          success: false,
+          error: 'Media attachments must be public URLs. Base64/data URLs are not supported by Twilio. Please upload the file (e.g., Cloudinary/S3) and send the URL.',
+        };
+      }
+
       // Convert relative URLs to absolute URLs for local uploads
       const mediaUrls = params.mediaUrls?.map(url => {
         if (url.startsWith('/uploads/') || url.startsWith('/')) {
-          // Convert to absolute URL
           const baseUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000';
           return `${baseUrl}${url}`;
         }
@@ -88,9 +95,12 @@ export class TwilioSMSIntegration implements ChannelIntegration {
       };
     } catch (error) {
       console.error('Twilio SMS send error:', error);
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      // Helpful hint for media failures
+      const hint = errMsg.toLowerCase().includes('media') ? ' Twilio requires mediaUrl to be a publicly accessible URL.' : '';
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errMsg + hint,
       };
     }
   }
@@ -156,20 +166,29 @@ export class TwilioWhatsAppIntegration implements ChannelIntegration {
     try {
       const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
+      // Validate media URLs: Twilio WhatsApp requires publicly accessible URLs
+      if (params.mediaUrls?.some(u => u.startsWith('data:') || u.startsWith('base64,'))) {
+        return {
+          success: false,
+          error: 'WhatsApp media must be sent as public URLs. Base64/data URLs are not supported. Upload to a public host (e.g., Cloudinary/S3) and send the URL.',
+        };
+      }
+
       // Convert relative URLs to absolute URLs for local uploads
       const mediaUrls = params.mediaUrls?.map(url => {
         if (url.startsWith('/uploads/') || url.startsWith('/')) {
-          // Convert to absolute URL
           const baseUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000';
           return `${baseUrl}${url}`;
         }
         return url;
       });
 
+      const toNumber = params.to.startsWith('whatsapp:') ? params.to : `whatsapp:${params.to}`;
+
       const message = await this.client.messages.create({
         body: params.content,
         from: whatsappNumber,
-        to: `whatsapp:${params.to}`,
+        to: toNumber,
         mediaUrl: mediaUrls,
       });
 
@@ -179,9 +198,11 @@ export class TwilioWhatsAppIntegration implements ChannelIntegration {
       };
     } catch (error) {
       console.error('Twilio WhatsApp send error:', error);
+      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      const hint = errMsg.toLowerCase().includes('media') ? ' WhatsApp via Twilio requires mediaUrl to be a public URL. Consider uploading to Cloudinary/S3 and retry.' : '';
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errMsg + hint,
       };
     }
   }
