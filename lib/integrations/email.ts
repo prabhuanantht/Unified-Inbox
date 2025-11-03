@@ -1,6 +1,8 @@
 import { ChannelIntegration, SendParams, SendResult } from './base';
 import { Resend } from 'resend';
 import imaps from 'imap-simple';
+import { render } from '@react-email/render';
+import { EmailTemplate } from '../../emails/email-template';
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const imapConfig = {
@@ -136,7 +138,7 @@ export class EmailIntegration implements ChannelIntegration {
   }
 
   /**
-   * Send email via Resend
+   * Send email via Resend using React Email
    */
   async send(params: SendParams): Promise<SendResult> {
     try {
@@ -147,9 +149,11 @@ export class EmailIntegration implements ChannelIntegration {
         };
       }
 
-      // Get from email - prefer RESEND_FROM_EMAIL, fallback to onboarding@resend.dev
-      // Note: 'onboarding@resend.dev' only works in development/test mode
-      const fromEmail = params.from || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+      // For free tier, use onboarding@resend.dev as sender
+      // NOTE: onboarding@resend.dev can ONLY send to your own verified email address
+      // To send to any recipient, verify a domain at https://resend.com/domains
+      // and set RESEND_FROM_EMAIL to use your verified domain
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
       
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -167,34 +171,35 @@ export class EmailIntegration implements ChannelIntegration {
           error: `Invalid recipient email address: ${toEmail}`,
         };
       }
-      
-      if (!emailRegex.test(fromEmail)) {
-        return {
-          success: false,
-          error: `Invalid from email address: ${fromEmail}. Please set RESEND_FROM_EMAIL in .env with a valid email.`,
-        };
+
+      // Check if using free tier and validate recipient
+      if (fromEmail === 'onboarding@resend.dev') {
+        const verifiedEmail = process.env.RESEND_VERIFIED_EMAIL || '';
+        if (!verifiedEmail) {
+          console.warn('RESEND_VERIFIED_EMAIL not set. Add your Resend account email to .env for better validation.');
+        } else if (toEmail.toLowerCase() !== verifiedEmail.toLowerCase()) {
+          return {
+            success: false,
+            error: `Free tier limitation: With onboarding@resend.dev, you can only send to your verified email (${verifiedEmail}). You're trying to send to: ${toEmail}. To send to any recipient, verify a domain at https://resend.com/domains and set RESEND_FROM_EMAIL in your .env file.`,
+          };
+        }
       }
+
+      // Use React Email to render HTML
+      const emailHtml = await render(
+        EmailTemplate({ 
+          content: params.content || '', 
+          mediaUrls: params.mediaUrls || [] 
+        })
+      );
 
       const emailData: any = {
         from: fromEmail,
         to: [toEmail],
         subject: params.subject || 'Message from Unified Inbox',
-        text: params.content,
+        html: emailHtml,
+        text: params.content, // Plain text fallback
       };
-
-      // Add HTML if media URLs are provided
-      if (params.mediaUrls && params.mediaUrls.length > 0) {
-        emailData.html = `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-            <p>${params.content.replace(/\n/g, '<br>')}</p>
-            ${params.mediaUrls.map(url => 
-              url.startsWith('data:image') 
-                ? `<img src="${url}" alt="Attachment" style="max-width: 500px; border-radius: 4px;" />`
-                : `<a href="${url}" style="color: #0066cc;">${url}</a>`
-            ).join('<br>')}
-          </div>
-        `;
-      }
 
       // Handle reply-to
       if (params.replyTo) {
@@ -205,37 +210,49 @@ export class EmailIntegration implements ChannelIntegration {
         }
       }
 
-      console.log('Sending email via Resend:', { from: fromEmail, to: toEmail, subject: emailData.subject });
+      console.log('Sending email via Resend:', { 
+        from: fromEmail, 
+        to: toEmail, 
+        subject: emailData.subject,
+        hasContent: !!params.content,
+        hasSubject: !!params.subject,
+      });
       
       const result = await this.resend.emails.send(emailData);
 
-      if (result.error) {
-        console.error('Resend API error:', JSON.stringify(result.error, null, 2));
+      if ('error' in result && result.error) {
+        const error: any = result.error;
+        console.error('Resend API error:', JSON.stringify(error, null, 2));
         
         // Handle different error types
         let errorMessage = 'Failed to send email';
-        if (result.error.message) {
-          errorMessage = result.error.message;
-        } else if (typeof result.error === 'string') {
-          errorMessage = result.error;
+        if (error?.message) {
+          errorMessage = error.message;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
         }
         
         // Provide helpful context for common errors
-        if (errorMessage.includes('domain') || errorMessage.includes('verification') || errorMessage.includes('not verified')) {
-          errorMessage += '. Tip: You need to verify your domain in Resend dashboard or use onboarding@resend.dev for testing (only works to verified recipients).';
+        if (errorMessage.includes('only send testing emails to your own email address') || 
+            errorMessage.includes('verify a domain') ||
+            errorMessage.includes('only send to your own email')) {
+          // Free tier limitation - can only send to verified email
+          errorMessage = `Free tier limitation: With onboarding@resend.dev, you can only send to your own verified email address (typically the one you used to sign up for Resend). To send to any recipient, please verify a domain at https://resend.com/domains and update RESEND_FROM_EMAIL in your .env file to use your verified domain (e.g., noreply@yourdomain.com).`;
+        } else if (errorMessage.includes('domain') || errorMessage.includes('verification') || errorMessage.includes('not verified')) {
+          errorMessage += '. To send emails, verify your domain at https://resend.com/domains';
         } else if (errorMessage.includes('invalid') || errorMessage.includes('validation')) {
-          errorMessage += '. Please check that the email addresses are valid.';
+          errorMessage += '. Please check that the recipient email address is valid.';
         } else if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
           errorMessage += '. You may have exceeded your Resend quota. Check your Resend dashboard.';
         }
         
         return {
           success: false,
-          error: `Resend API Error: ${errorMessage}`,
+          error: errorMessage,
         };
       }
       
-      console.log('Email sent successfully:', result.data?.id);
+      console.log('Email sent successfully:', 'data' in result ? result.data?.id : 'unknown');
 
       return {
         success: true,
@@ -246,7 +263,7 @@ export class EmailIntegration implements ChannelIntegration {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        error: `Failed to send email: ${errorMessage}. Please check RESEND_API_KEY and RESEND_FROM_EMAIL configuration.`,
+        error: `Failed to send email: ${errorMessage}`,
       };
     }
   }
