@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Phone, Mail, Clock, MessageSquare, AtSign, Lock, Unlock, Sparkles, Loader2 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EnhancedNoteEditor } from './EnhancedNoteEditor';
 
 interface ContactProfileModalProps {
@@ -128,6 +128,7 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Contact Profile</DialogTitle>
+          <DialogDescription className="sr-only">View timeline, notes, and AI summary for this contact</DialogDescription>
         </DialogHeader>
 
         {contact && (

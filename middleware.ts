@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from './lib/auth';
 
 export async function middleware(request: NextRequest) {
+  // Dev bypass: allow everything when enabled (and avoid importing auth/prisma)
+  if (process.env.DEV_DISABLE_AUTH === 'true') {
+    return NextResponse.next();
+  }
+
   try {
+    // Dynamically import auth only when needed to avoid Edge bundling issues
+    const { auth } = await import('./lib/auth');
+
     const session = await auth.api.getSession({ 
       headers: request.headers 
     });
@@ -37,7 +44,11 @@ export async function middleware(request: NextRequest) {
     });
   } catch (error) {
     console.error('Middleware error:', error);
-    // On error, redirect to login
+    // On error, allow the request to proceed in dev rather than blocking the app
+    if (process.env.NODE_ENV === 'development') {
+      return NextResponse.next();
+    }
+    // In production, redirect to login on error
     if (!request.nextUrl.pathname.startsWith('/api/auth') && 
         !request.nextUrl.pathname.startsWith('/login') &&
         !request.nextUrl.pathname.startsWith('/register') &&
@@ -49,14 +60,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Always use a static matcher; runtime conditionals are not supported here.
+  // Exclude Next.js assets and common static files to prevent auth redirects breaking CSS/JS.
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public/|uploads/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf)$).*)',
   ],
 };
