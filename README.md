@@ -300,41 +300,41 @@ Service SLAs and costs vary by account/region. The app surfaces message `status`
 ```mermaid
 graph LR
   subgraph Client
-    UI[Next.js App Router UI]
+    UI["Next.js App Router UI"]
   end
 
   subgraph Next.js App
-    API[API Routes (app/api/*)]
-    Auth[Better Auth + Middleware]
-    RQ[React Query Cache]
+    API["API Routes (app/api)"]
+    Auth["Better Auth + Middleware"]
+    RQ["React Query Cache"]
   end
 
-  DB[(PostgreSQL)]
-  Prisma[Prisma ORM]
+  DB[("PostgreSQL")]
+  Prisma["Prisma ORM"]
 
-  Cloudinary[(Cloudinary CDN/Storage)]
-  Twilio[(Twilio SMS/WhatsApp/Voice)]
-  Resend[(Resend Email)]
-  Slack[(Slack Web API)]
-  Meta[(Facebook/Instagram Graph API)]
-  Gemini[(Gemini AI)]
+  Cloudinary[("Cloudinary CDN/Storage")]
+  Twilio[("Twilio SMS/WhatsApp/Voice")]
+  Resend[("Resend Email")]
+  Slack[("Slack Web API")]
+  Meta[("Facebook/Instagram Graph API")]
+  Gemini[("Gemini AI")]
 
-  UI -->|fetch/prefetch| API
+  UI -->|"fetch/prefetch"| API
   UI --> Auth
   API --> Prisma
   Prisma --> DB
 
-  API -->|media uploads| Cloudinary
+  API -->|"media uploads"| Cloudinary
   API -->|send| Twilio
   API -->|send| Resend
   API -->|send| Slack
   API -->|send| Meta
-  API -->|summaries/suggestions| Gemini
+  API -->|"summaries/suggestions"| Gemini
 
-  Twilio -->|webhooks inbound| API
-  Resend -->|webhooks inbound| API
-  Slack -->|events/webhooks| API
-  Meta -->|webhooks inbound| API
+  Twilio -->|"webhooks inbound"| API
+  Resend -->|"webhooks inbound"| API
+  Slack -->|"events/webhooks"| API
+  Meta -->|"webhooks inbound"| API
 
   API -->|invalidate| RQ
 ```
