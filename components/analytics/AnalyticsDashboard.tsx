@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { MessageSquare, Clock, CheckCircle, XCircle, TrendingUp } from 'lucide-react';
+import { MessageSquare, Clock, CheckCircle, XCircle, TrendingUp, Phone } from 'lucide-react';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -23,6 +23,12 @@ export function AnalyticsDashboard() {
   const messagesByChannel = analytics?.messagesByChannel || [];
   const messagesByStatus = analytics?.messagesByStatus || [];
   const dailyMessages = analytics?.dailyMessages || [];
+  const totalCalls = analytics?.totalCalls || 0;
+  const scheduledCalls = analytics?.scheduledCalls || 0;
+  const callSuccessRate = analytics?.callSuccessRate || 0;
+  const callsByType = analytics?.callsByType || [];
+  const callsByStatus = analytics?.callsByStatus || [];
+  const dailyCalls = analytics?.dailyCalls || [];
 
   const channelData = messagesByChannel.map((item: any) => ({
     name: item.channel,
@@ -31,6 +37,16 @@ export function AnalyticsDashboard() {
 
   const statusData = messagesByStatus.map((item: any) => ({
     name: item.status,
+    value: item._count,
+  }));
+
+  const callsByStatusData = callsByStatus.map((item: any) => ({
+    name: item.status,
+    value: item._count,
+  }));
+
+  const callsByTypeData = callsByType.map((item: any) => ({
+    name: item.type,
     value: item._count,
   }));
 
@@ -52,7 +68,7 @@ export function AnalyticsDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <StatCard
           icon={<MessageSquare className="w-5 h-5" />}
           title="Total Messages"
@@ -77,6 +93,12 @@ export function AnalyticsDashboard() {
           value={statusData.find((s: any) => s.name === 'FAILED')?.value || 0}
           color="red"
         />
+        <StatCard
+          icon={<Phone className="w-5 h-5" />}
+          title="Calls Initiated"
+          value={totalCalls}
+          color="yellow"
+        />
       </div>
 
       {/* Charts */}
@@ -84,52 +106,40 @@ export function AnalyticsDashboard() {
         {/* Messages by Channel */}
         <div className="bg-card rounded-lg border border-border p-6">
           <h2 className="text-lg font-semibold mb-4 text-foreground">Messages by Channel</h2>
-          {channelData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={channelData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {channelData.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              No data available
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={channelData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {channelData.map((entry: any, index: number) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Messages by Status */}
         <div className="bg-card rounded-lg border border-border p-6">
           <h2 className="text-lg font-semibold mb-4 text-foreground">Messages by Status</h2>
-          {statusData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={statusData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              No data available
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={statusData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="value" fill="#3B82F6" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -138,73 +148,118 @@ export function AnalyticsDashboard() {
         {/* Messages by Direction */}
         <div className="bg-card rounded-lg border border-border p-6">
           <h2 className="text-lg font-semibold mb-4 text-foreground">Inbound vs Outbound</h2>
-          {directionData.some(d => d.value > 0) ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={directionData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent, value }) => value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  <Cell fill="#10B981" />
-                  <Cell fill="#3B82F6" />
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              No data available
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={directionData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent, value }) => value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                <Cell fill="#10B981" />
+                <Cell fill="#3B82F6" />
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Channel Performance */}
         <div className="bg-card rounded-lg border border-border p-6">
           <h2 className="text-lg font-semibold mb-4 text-foreground">Channel Performance</h2>
-          {channelData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={channelData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="value" fill="#10B981" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              No data available
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={channelData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="value" fill="#10B981" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Calls Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Calls by Type */}
+        <div className="bg-card rounded-lg border border-border p-6">
+          <h2 className="text-lg font-semibold mb-4 text-foreground">Calls by Type</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={callsByTypeData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {callsByTypeData.map((entry: any, index: number) => (
+                  <Cell key={`cell-type-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Calls by Status + success rate */}
+        <div className="bg-card rounded-lg border border-border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Calls by Status</h2>
+            <div className="text-sm text-muted-foreground">Success: {callSuccessRate}%</div>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={callsByStatusData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="value" fill="#F59E0B" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Daily Messages */}
       <div className="bg-card rounded-lg border border-border p-6">
         <h2 className="text-lg font-semibold mb-4 text-foreground">Daily Message Volume</h2>
-        {dailyMessages.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dailyMessages}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-            No data available
-          </div>
-        )}
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={dailyMessages}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Daily Calls */}
+      <div className="bg-card rounded-lg border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Daily Calls</h2>
+          <div className="text-sm text-muted-foreground">Scheduled: {scheduledCalls}</div>
+        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={dailyCalls}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Line type="monotone" dataKey="count" stroke="#F59E0B" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

@@ -3,10 +3,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { MessageSquare, Phone, Mail, MessageCircle, RefreshCw, Reply, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { MessageSquare, Phone, Mail, MessageCircle, RefreshCw, Reply, Plus, SlidersHorizontal, X } from 'lucide-react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { NewMessageComposer } from './NewMessageComposer';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 
 const channelIcons = {
   SMS: Phone,
@@ -46,11 +47,36 @@ interface Message {
 }
 
 export function UnifiedInboxFeed() {
-  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const urlChannel = searchParams?.get('channel');
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(urlChannel || null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [startDate, setStartDate] = useState<string>(searchParams?.get('start') || '');
+  const [endDate, setEndDate] = useState<string>(searchParams?.get('end') || '');
+  const [direction, setDirection] = useState<string>(searchParams?.get('dir') || '');
+  const q = searchParams?.get('q')?.trim() || '';
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [showNewMessage, setShowNewMessage] = useState(false);
   const queryClient = useQueryClient();
+
+  // Keep local state in sync if URL changes externally
+  useEffect(() => {
+    setSelectedChannel(urlChannel || null);
+    setStartDate(searchParams?.get('start') || '');
+    setEndDate(searchParams?.get('end') || '');
+    setDirection(searchParams?.get('dir') || '');
+  }, [urlChannel, searchParams]);
+
+  const updateParams = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams?.toString());
+    Object.entries(updates).forEach(([k, v]) => {
+      if (!v) params.delete(k); else params.set(k, v);
+    });
+    router.replace(`${pathname}${params.toString() ? `?${params.toString()}` : ''}`);
+  }, [pathname, router, searchParams]);
 
   // Sync messages mutation
   const syncMessages = useMutation({
@@ -102,9 +128,7 @@ export function UnifiedInboxFeed() {
         // Build URL with query params
         const params = new URLSearchParams();
         params.set('all', 'true');
-        if (selectedChannel) {
-          params.set('channel', selectedChannel);
-        }
+        if (selectedChannel) params.set('channel', selectedChannel);
         
         const url = `/api/messages?${params.toString()}`;
         console.log('Fetching messages from:', url);
@@ -173,7 +197,7 @@ export function UnifiedInboxFeed() {
           {/* Top row: Action buttons */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             <h2 className="text-lg font-semibold text-foreground">Unified Inbox</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 relative">
               <button
                 onClick={() => setShowNewMessage(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition text-sm font-medium"
@@ -191,46 +215,109 @@ export function UnifiedInboxFeed() {
                 <RefreshCw className={cn('w-4 h-4', syncMessages.isPending && 'animate-spin')} />
                 <span className="hidden sm:inline">Sync</span>
               </button>
+              <button
+                onClick={() => setShowFilters((s) => !s)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition text-sm font-medium"
+                title="Filters"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">Filters</span>
+              </button>
+
+              {showFilters && (
+                <>
+                  <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setShowFilters(false)} />
+                  <div className="fixed z-40 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,900px)] border border-border rounded-xl bg-card shadow-2xl">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                      <h3 className="text-base sm:text-lg font-semibold text-foreground">Filters</h3>
+                      <button onClick={() => setShowFilters(false)} className="p-2 rounded hover:bg-accent" aria-label="Close filters">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="p-5 grid grid-cols-1 gap-5">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm text-muted-foreground">Channel</label>
+                        <select
+                          value={selectedChannel || ''}
+                          onChange={(e) => { const val = e.target.value || null; setSelectedChannel(val); updateParams({ channel: val }); }}
+                          className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm"
+                        >
+                          <option value="">All</option>
+                          {['SMS','WHATSAPP','EMAIL','FACEBOOK','INSTAGRAM','TWITTER','SLACK'].map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm text-muted-foreground">Direction</label>
+                        <select
+                          value={direction}
+                          onChange={(e) => { setDirection(e.target.value); updateParams({ dir: e.target.value || null }); }}
+                          className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm"
+                        >
+                          <option value="">All</option>
+                          <option value="INBOUND">Inbound</option>
+                          <option value="OUTBOUND">Outbound</option>
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-sm text-muted-foreground">Date range</label>
+                        <div className="flex items-center gap-3">
+                          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm w-full" />
+                          <span className="text-muted-foreground">–</span>
+                          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm w-full" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
+                      <button onClick={() => { setStartDate(''); setEndDate(''); setDirection(''); setSelectedChannel(null); updateParams({ start: null, end: null, dir: null, channel: null }); }} className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm">Clear all</button>
+                      <button onClick={() => { updateParams({ start: startDate || null, end: endDate || null }); setShowFilters(false); }} className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm">Apply</button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Filter bar - Always visible */}
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1.5 whitespace-nowrap">Filter:</span>
-              <div className="flex flex-wrap gap-2 flex-1">
-                <button
-                  onClick={() => setSelectedChannel(null)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap',
-                    selectedChannel === null
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  )}
-                >
-                  All
-                </button>
-                {(['SMS', 'WHATSAPP', 'EMAIL', 'FACEBOOK', 'INSTAGRAM', 'TWITTER', 'SLACK'] as const).map((channel) => {
-                  const Icon = channelIcons[channel] || MessageSquare;
-                  return (
-                    <button
-                      key={channel}
-                      onClick={() => setSelectedChannel(channel)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 whitespace-nowrap',
-                        selectedChannel === channel
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                      )}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {channel}
+          {/* Active filter chips row (only when any filter is active) */}
+          {(selectedChannel || direction || startDate || endDate || q) && (
+            <div className="px-4 pb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedChannel && (
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                    Channel: {selectedChannel}
+                    <button onClick={() => { setSelectedChannel(null); updateParams({ channel: null }); }} aria-label="Clear channel">
+                      <X className="w-3 h-3" />
                     </button>
-                  );
-                })}
+                  </span>
+                )}
+                {direction && (
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                    Dir: {direction}
+                    <button onClick={() => { setDirection(''); updateParams({ dir: null }); }} aria-label="Clear direction">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {(startDate || endDate) && (
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                    {startDate || '…'} – {endDate || '…'}
+                    <button onClick={() => { setStartDate(''); setEndDate(''); updateParams({ start: null, end: null }); }} aria-label="Clear date">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+                {q && (
+                  <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                    Search: “{q}”
+                    <button onClick={() => updateParams({ q: null })} aria-label="Clear search">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Empty state */}
@@ -248,8 +335,32 @@ export function UnifiedInboxFeed() {
     );
   }
 
+  // Filter messages client-side based on URL params (computed unconditionally)
+  const filtered = (() => {
+    const startTs = startDate ? new Date(startDate + 'T00:00:00').getTime() : null;
+    const endTs = endDate ? new Date(endDate + 'T23:59:59.999').getTime() : null;
+    const qLower = (q || '').toLowerCase();
+    const list = Array.isArray(messages) ? messages : [];
+    return list.filter((m) => {
+      if (selectedChannel && m.channel !== selectedChannel) return false;
+      if (direction && m.direction !== direction) return false;
+      const ts = new Date(m.createdAt).getTime();
+      if (startTs && ts < startTs) return false;
+      if (endTs && ts > endTs) return false;
+      if (qLower) {
+        const name = m.contact?.name || '';
+        const phone = (m as any).contact?.phone || '';
+        const email = m.contact?.email || '';
+        const content = m.content || '';
+        const hay = `${name} ${phone} ${email} ${content}`.toLowerCase();
+        if (!hay.includes(qLower)) return false;
+      }
+      return true;
+    });
+  })();
+
   // Group messages by date
-  const groupedMessages = messages.reduce((acc, message) => {
+  const groupedMessages = filtered.reduce((acc, message) => {
     try {
       if (!message || !message.createdAt) return acc;
       const date = new Date(message.createdAt).toLocaleDateString();
@@ -285,7 +396,7 @@ export function UnifiedInboxFeed() {
         {/* Top row: Action buttons */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">Unified Inbox</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
             <button
               onClick={() => setShowNewMessage(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition text-sm font-medium"
@@ -303,46 +414,109 @@ export function UnifiedInboxFeed() {
               <RefreshCw className={cn('w-4 h-4', syncMessages.isPending && 'animate-spin')} />
               <span className="hidden sm:inline">Sync</span>
             </button>
+            <button
+              onClick={() => setShowFilters((s) => !s)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition text-sm font-medium"
+              title="Filters"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="hidden sm:inline">Filters</span>
+            </button>
+
+            {showFilters && (
+              <>
+                <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setShowFilters(false)} />
+                <div className="fixed z-40 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,900px)] border border-border rounded-xl bg-card shadow-2xl">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground">Filters</h3>
+                    <button onClick={() => setShowFilters(false)} className="p-2 rounded hover:bg-accent" aria-label="Close filters">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="p-5 grid grid-cols-1 gap-5">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm text-muted-foreground">Channel</label>
+                      <select
+                        value={selectedChannel || ''}
+                        onChange={(e) => { const val = e.target.value || null; setSelectedChannel(val); updateParams({ channel: val }); }}
+                        className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm"
+                      >
+                        <option value="">All</option>
+                        {['SMS','WHATSAPP','EMAIL','FACEBOOK','INSTAGRAM','TWITTER','SLACK'].map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm text-muted-foreground">Direction</label>
+                      <select
+                        value={direction}
+                        onChange={(e) => { setDirection(e.target.value); updateParams({ dir: e.target.value || null }); }}
+                        className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm"
+                      >
+                        <option value="">All</option>
+                        <option value="INBOUND">Inbound</option>
+                        <option value="OUTBOUND">Outbound</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm text-muted-foreground">Date range</label>
+                      <div className="flex items-center gap-3">
+                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm w-full" />
+                        <span className="text-muted-foreground">–</span>
+                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="px-3 py-2.5 border border-border rounded-md bg-background text-foreground text-sm w-full" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
+                    <button onClick={() => { setStartDate(''); setEndDate(''); setDirection(''); setSelectedChannel(null); updateParams({ start: null, end: null, dir: null, channel: null }); }} className="px-4 py-2 rounded-md bg-secondary text-secondary-foreground text-sm">Clear all</button>
+                    <button onClick={() => { updateParams({ start: startDate || null, end: endDate || null }); setShowFilters(false); }} className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm">Apply</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Filter bar - Always visible, scrolling when needed */}
-        <div className="p-4">
-          <div className="flex items-start gap-3">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1.5 whitespace-nowrap">Filter:</span>
-            <div className="flex flex-wrap gap-2 flex-1">
-              <button
-                onClick={() => setSelectedChannel(null)}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap',
-                  selectedChannel === null
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                )}
-              >
-                All
-              </button>
-              {(['SMS', 'WHATSAPP', 'EMAIL', 'FACEBOOK', 'INSTAGRAM', 'TWITTER', 'SLACK'] as const).map((channel) => {
-                const Icon = channelIcons[channel] || MessageSquare;
-                return (
-                  <button
-                    key={channel}
-                    onClick={() => setSelectedChannel(channel)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 whitespace-nowrap',
-                      selectedChannel === channel
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    )}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {channel}
+        {/* Active filter chips row (only when any filter is active) */}
+        {(selectedChannel || direction || startDate || endDate || q) && (
+          <div className="px-4 pb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedChannel && (
+                <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                  Channel: {selectedChannel}
+                  <button onClick={() => { setSelectedChannel(null); updateParams({ channel: null }); }} aria-label="Clear channel">
+                    <X className="w-3 h-3" />
                   </button>
-                );
-              })}
+                </span>
+              )}
+              {direction && (
+                <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                  Dir: {direction}
+                  <button onClick={() => { setDirection(''); updateParams({ dir: null }); }} aria-label="Clear direction">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {(startDate || endDate) && (
+                <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                  {startDate || '…'} – {endDate || '…'}
+                  <button onClick={() => { setStartDate(''); setEndDate(''); updateParams({ start: null, end: null }); }} aria-label="Clear date">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
+              {q && (
+                <span className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-foreground">
+                  Search: “{q}”
+                  <button onClick={() => updateParams({ q: null })} aria-label="Clear search">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Messages List */}

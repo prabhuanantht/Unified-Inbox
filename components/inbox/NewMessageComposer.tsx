@@ -42,7 +42,7 @@ export function NewMessageComposer({ onClose }: NewMessageComposerProps) {
           const contacts = await searchRes.json();
           contact = contacts.find((c: any) => c.email === recipient);
         }
-      } else if (channel === 'FACEBOOK' || channel === 'TWITTER' || channel === 'INSTAGRAM') {
+      } else if (channel === 'FACEBOOK' || channel === 'TWITTER' || channel === 'INSTAGRAM' || channel === 'SLACK') {
         const searchRes = await fetch('/api/contacts');
         if (searchRes.ok) {
           const contacts = await searchRes.json();
@@ -50,18 +50,30 @@ export function NewMessageComposer({ onClose }: NewMessageComposerProps) {
             const handles = c.socialHandles as any;
             return handles?.facebook === recipient || 
                    handles?.twitter === recipient ||
-                   handles?.instagram === recipient;
+                   handles?.instagram === recipient ||
+                   handles?.slack === recipient;
           });
         }
       }
 
       // Create contact if not found
       if (!contact) {
+        // Resolve Slack name if needed
+        let resolvedName = recipient;
+        if (channel === 'SLACK') {
+          try {
+            const r = await fetch(`/api/integrations/slack/resolve?id=${encodeURIComponent(recipient)}`);
+            if (r.ok) {
+              const data = await r.json();
+              if (data?.name) resolvedName = data.name;
+            }
+          } catch {}
+        }
         const contactRes = await fetch('/api/contacts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: recipient,
+            name: resolvedName,
             phone: channel === 'SMS' || channel === 'WHATSAPP' ? recipient : undefined,
             email: channel === 'EMAIL' ? recipient : undefined,
             socialHandles: channel === 'FACEBOOK' ? { facebook: recipient } :

@@ -174,9 +174,9 @@ export async function POST(req: NextRequest) {
     // Determine recipient based on channel
     let recipient = '';
     if (validatedData.channel === 'SMS' || validatedData.channel === 'WHATSAPP') {
-      recipient = contact.phone || '';
+      recipient = (contact as any).phone || '';
     } else if (validatedData.channel === 'EMAIL') {
-      recipient = contact.email || '';
+      recipient = (contact as any).email || '';
     } else if (validatedData.channel === 'FACEBOOK') {
       // For Facebook, use the PSID from socialHandles
       const socialHandles = contact.socialHandles as any;
@@ -207,6 +207,15 @@ export async function POST(req: NextRequest) {
         : validatedData.scheduledFor;
     }
 
+    // Build metadata for scheduled messages (especially emails with subject)
+    const metadata: any = {};
+    if (scheduledForDate && validatedData.channel === 'EMAIL' && validatedData.subject) {
+      metadata.emailSubject = validatedData.subject;
+    }
+    if (scheduledForDate && validatedData.replyToMessageId) {
+      metadata.replyToMessageId = validatedData.replyToMessageId;
+    }
+
     // Create message in database
     const message = await prisma.message.create({
       data: {
@@ -219,6 +228,7 @@ export async function POST(req: NextRequest) {
         direction: 'OUTBOUND',
         status: scheduledForDate ? 'SCHEDULED' : 'PENDING',
         scheduledFor: scheduledForDate,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       },
     });
 

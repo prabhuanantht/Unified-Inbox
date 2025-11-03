@@ -107,6 +107,60 @@ export async function GET(req: NextRequest) {
     const outboundCount = allMessages.filter((m: MessageForAnalytics) => m.direction === 'OUTBOUND').length;
     const inboundCount = allMessages.filter((m: MessageForAnalytics) => m.direction === 'INBOUND').length;
 
+    // =============================
+    // Call analytics (Twilio voice via metadata.voiceCall)
+    // =============================
+    const callCandidates = await prisma.message.findMany({
+      where: shouldFilterByUser ? {
+        userId,
+        createdAt: { gte: startDate },
+        metadata: { not: null },
+      } : {
+        createdAt: { gte: startDate },
+        metadata: { not: null },
+      },
+      select: {
+        createdAt: true,
+        status: true,
+        metadata: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const callMessages = callCandidates.filter((m) => (m.metadata as any)?.voiceCall === true);
+
+    const totalCalls = callMessages.length;
+
+    // Calls by type (IMMEDIATE vs SCHEDULED)
+    const callsByTypeMap = new Map<string, number>();
+    callMessages.forEach((m) => {
+      const callType = (m.metadata as any)?.callType || 'UNKNOWN';
+      callsByTypeMap.set(callType, (callsByTypeMap.get(callType) || 0) + 1);
+    });
+    const callsByType = Array.from(callsByTypeMap.entries()).map(([type, _count]) => ({ type, _count }));
+
+    // Calls by status
+    const callsByStatusMap = new Map<string, number>();
+    callMessages.forEach((m) => {
+      callsByStatusMap.set(m.status, (callsByStatusMap.get(m.status) || 0) + 1);
+    });
+    const callsByStatus = Array.from(callsByStatusMap.entries()).map(([status, _count]) => ({ status, _count }));
+
+    // Daily calls
+    const dailyCallsMap = new Map<string, number>();
+    callMessages.forEach((m) => {
+      const date = m.createdAt.toISOString().split('T')[0];
+      dailyCallsMap.set(date, (dailyCallsMap.get(date) || 0) + 1);
+    });
+    const dailyCalls = Array.from(dailyCallsMap.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const scheduledCalls = callMessages.filter((m) => m.status === 'SCHEDULED').length;
+    const successfulCalls = callMessages.filter((m) => m.status === 'SENT' || m.status === 'DELIVERED').length;
+    const failedCalls = callMessages.filter((m) => m.status === 'FAILED').length;
+    const callSuccessRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
+
     return NextResponse.json({
       messagesByChannel,
       messagesByStatus,
@@ -115,6 +169,15 @@ export async function GET(req: NextRequest) {
       totalMessages: allMessages.length,
       outboundCount,
       inboundCount,
+      // Call analytics
+      totalCalls,
+      scheduledCalls,
+      successfulCalls,
+      failedCalls,
+      callSuccessRate,
+      callsByType,
+      callsByStatus,
+      dailyCalls,
     });
   } catch (error) {
     console.error('Error fetching analytics:', error);

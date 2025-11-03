@@ -144,7 +144,6 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Phone className="w-4 h-4" />
                       <span>{contact.phone}</span>
-                      <VoIPButton phoneNumber={contact.phone} />
                     </div>
                   )}
                   {contact.email && (
@@ -178,16 +177,17 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
 
             {/* Quick Actions */}
             <div className="flex gap-3">
-              {contact.phone && (
-                <VoIPButton phoneNumber={contact.phone} variant="full" />
-              )}
+              {contact.phone && <CallDropdown contactId={contactId} phone={contact.phone} />}
               {contact.email && (
                 <button className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 flex items-center gap-2">
                   <Mail className="w-4 h-4" />
                   Email
                 </button>
               )}
-              <button className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('timeline')}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 flex items-center gap-2"
+              >
                 <MessageSquare className="w-4 h-4" />
                 Message
               </button>
@@ -363,28 +363,81 @@ function AISummaryCard({ isLoading, summary, onGenerate }: any) {
   );
 }
 
-function VoIPButton({ phoneNumber, variant = 'icon' }: { phoneNumber: string; variant?: 'icon' | 'full' }) {
+function CallDropdown({ contactId, phone }: { contactId: string; phone: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <button
-      onClick={async () => {
-        try {
-          const res = await fetch('/api/twilio/call', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: phoneNumber }),
-          });
-          if (!res.ok) throw new Error('Failed to initiate call');
-          toast.success('Call initiated!');
-        } catch (error) {
-          toast.error('Failed to initiate call');
-          console.error(error);
-        }
-      }}
-      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-    >
-      <Phone className="w-4 h-4" />
-      {variant === 'full' && <span>Call</span>}
-    </button>
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+      >
+        <Phone className="w-4 h-4" />
+        <span>Call</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute z-50 mt-2 w-48 bg-card border border-border rounded-lg shadow-xl">
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onClick={() => {
+                setOpen(false);
+                toast.info('Live mic/browser calling requires Twilio Client setup.');
+              }}
+            >
+              Live Call (browser)
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onClick={async () => {
+                setOpen(false);
+                const text = window.prompt('Enter the message to speak during the call:');
+                if (!text) return;
+                try {
+                  const res = await fetch('/api/twilio/call', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: phone, text, contactId }),
+                  });
+                  if (!res.ok) throw new Error('Failed to initiate TTS call');
+                  toast.success('TTS call initiated');
+                } catch (e) {
+                  toast.error('Failed to initiate TTS call');
+                  console.error(e);
+                }
+              }}
+            >
+              Call Now (TTS)
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent"
+              onClick={async () => {
+                setOpen(false);
+                const text = window.prompt('Enter the message to speak on the scheduled call:');
+                if (!text) return;
+                const dateStr = window.prompt('Enter schedule time (YYYY-MM-DD HH:mm, 24h)');
+                if (!dateStr) return;
+                const iso = new Date(dateStr.replace(' ', 'T')).toISOString();
+                try {
+                  const res = await fetch('/api/twilio/call/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contactId, text, scheduledFor: iso }),
+                  });
+                  if (!res.ok) throw new Error('Failed to schedule call');
+                  toast.success('Call scheduled');
+                } catch (e) {
+                  toast.error('Failed to schedule call');
+                  console.error(e);
+                }
+              }}
+            >
+              Schedule Call
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

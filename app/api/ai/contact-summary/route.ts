@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
 
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Prefer newer models when available; allow override via env
+    // Use a valid model name
     const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const model = genAI.getGenerativeModel({ model: modelName });
 

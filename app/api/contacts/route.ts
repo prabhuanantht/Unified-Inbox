@@ -32,14 +32,50 @@ export async function GET(req: NextRequest) {
 
     const contacts = await prisma.contact.findMany({
       where: { userId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        socialHandles: true,
+        tags: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
         messages: {
           take: 1,
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            contactId: true,
+            userId: true,
+            channel: true,
+            direction: true,
+            content: true,
+            status: true,
+            metadata: true,
+            mediaUrls: true,
+            scheduledFor: true,
+            sentAt: true,
+            deliveredAt: true,
+            readAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
         notes: {
           take: 5,
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            contactId: true,
+            userId: true,
+            content: true,
+            isPrivate: true,
+            mentions: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
       },
       orderBy: { updatedAt: 'desc' },
@@ -152,7 +188,11 @@ export async function POST(req: NextRequest) {
 
     const contact = await prisma.contact.create({
       data: {
-        ...validatedData,
+        name: validatedData.name,
+        phone: validatedData.phone,
+        email: validatedData.email,
+        socialHandles: validatedData.socialHandles,
+        tags: validatedData.tags || [],
         userId,
       },
     });

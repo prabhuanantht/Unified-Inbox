@@ -28,8 +28,8 @@ export function InboxView() {
   // Unified inbox view - shows all messages from all channels
   if (viewMode === 'unified') {
     return (
-      <div className="flex h-full">
-        <div className="w-80 border-r border-border bg-card">
+      <div className="flex h-full min-h-0 overflow-hidden">
+        <div className="hidden md:flex md:w-72 lg:w-80 border-r border-border bg-card flex-col min-h-0">
           <div className="p-4 border-b border-border">
             <h2 className="text-lg font-semibold mb-4 text-foreground">Inbox</h2>
             <div className="flex gap-2">
@@ -56,7 +56,7 @@ export function InboxView() {
             }}
           />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-h-0 min-w-0">
           <UnifiedInboxFeed />
         </div>
       </div>
@@ -65,8 +65,8 @@ export function InboxView() {
 
   // Contact-based view - shows messages for a specific contact
   return (
-    <div className="flex h-full">
-      <div className="w-80 border-r border-border bg-card">
+    <div className="flex h-full min-h-0 overflow-hidden">
+      <div className="hidden md:flex md:w-72 lg:w-80 border-r border-border bg-card flex-col min-h-0">
         <div className="p-4 border-b border-border">
           <h2 className="text-lg font-semibold mb-4 text-foreground">Inbox</h2>
           <div className="flex gap-2">
@@ -94,10 +94,10 @@ export function InboxView() {
         />
       </div>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {selectedContactId ? (
           <>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 min-w-0">
               <MessageThread contactId={selectedContactId} />
             </div>
             <div className="border-t border-border bg-card">

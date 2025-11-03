@@ -84,6 +84,8 @@ model Contact {
   name          String?
   phone         String?
   email         String?
+  phones        String[]
+  emails        String[]
   socialHandles Json?
   tags          String[]
   createdAt     DateTime @default(now())

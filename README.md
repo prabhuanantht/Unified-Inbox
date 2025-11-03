@@ -92,6 +92,10 @@ RESEND_API_KEY="your-resend-api-key"
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
+# Google Gemini AI (Optional - for contact summaries & suggestions)
+GEMINI_API_KEY="your-gemini-api-key"
+# GEMINI_MODEL="gemini-2.5-flash"  # Optional, defaults to gemini-1.5-flash
+
 # Slack / Meta / Twitter (optional)
 SLACK_BOT_TOKEN="xoxb-..."
 FACEBOOK_APP_ID="..."

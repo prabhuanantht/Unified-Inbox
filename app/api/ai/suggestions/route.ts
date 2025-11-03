@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
 
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `You are a helpful customer service assistant. Based on the conversation history below, suggest 3 brief, professional, and contextually appropriate reply options for the agent to send to the customer.
 

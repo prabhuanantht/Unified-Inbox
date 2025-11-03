@@ -5,12 +5,14 @@ import { useQuery } from '@tanstack/react-query';
 import { formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { ChatActions } from './ChatActions';
+import { Phone } from 'lucide-react';
 
 interface MessageThreadProps {
   contactId: string;
 }
 
 export function MessageThread({ contactId }: MessageThreadProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef<number>(0);
 
@@ -38,10 +40,16 @@ export function MessageThread({ contactId }: MessageThreadProps) {
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive, scoped to the thread container
   useEffect(() => {
     if (messages && messages.length > prevMessagesLengthRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const el = containerRef.current;
+      if (el) {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      } else {
+        // Fallback: keep behavior scoped as much as possible
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     }
     prevMessagesLengthRef.current = messages?.length || 0;
   }, [messages]);
@@ -51,8 +59,8 @@ export function MessageThread({ contactId }: MessageThreadProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-border bg-card flex items-center justify-between">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="p-4 border-b border-border bg-card flex items-center justify-between sticky top-0 z-10">
         <div>
           <h2 className="text-lg font-semibold text-foreground">
             {contact.name || contact.phone || contact.email}
@@ -64,7 +72,7 @@ export function MessageThread({ contactId }: MessageThreadProps) {
         <ChatActions contactId={contactId} />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-background">
+      <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-background min-h-0">
         {messages.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             No messages yet. Start a conversation!
@@ -87,6 +95,29 @@ export function MessageThread({ contactId }: MessageThreadProps) {
                       : 'bg-card border border-border text-card-foreground'
                   )}
                 >
+                  {/* Voice call message rendering */}
+                  {message.metadata?.voiceCall ? (
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5">
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{message.metadata?.callType === 'SCHEDULED' ? 'Call scheduled' : 'Call placed'}</div>
+                        {message.content && (
+                          <p className="text-sm opacity-90 mt-0.5">Script: {message.content}</p>
+                        )}
+                        <div className={cn(
+                          'flex items-center gap-2 mt-2 text-xs',
+                          message.direction === 'OUTBOUND' ? 'opacity-80' : 'text-muted-foreground'
+                        )}>
+                          <span>{formatRelativeDate(new Date(message.createdAt))}</span>
+                          <span className="opacity-60">•</span>
+                          <span className="uppercase text-[10px]">CALL</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                   {message.mediaUrls && message.mediaUrls.length > 0 && (
                     <div className="mb-2 space-y-2">
                       {message.mediaUrls.map((url: string, i: number) => {
@@ -132,6 +163,8 @@ export function MessageThread({ contactId }: MessageThreadProps) {
                       </>
                     )}
                   </div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

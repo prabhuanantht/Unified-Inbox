@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { noteSchema } from '@/lib/validations';
 import { z } from 'zod';
+import { auth } from '@/lib/auth';
 
 /**
  * GET /api/notes - Fetch notes
@@ -38,14 +39,49 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id') || 'temp-user-id';
     const body = await req.json();
 
     const validatedData = noteSchema.parse(body);
 
+    // Ensure the contact exists and get its associated userId
+    const contact = await prisma.contact.findUnique({
+      where: { id: validatedData.contactId },
+      select: { id: true, userId: true },
+    });
+
+    if (!contact) {
+      return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
+    // Prefer the authenticated user if available; else fall back to contact.userId; else create/get a fallback
+    const session = await auth.api.getSession({ headers: req.headers });
+    let userId = session?.user?.id || contact.userId || null;
+
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        userId = null;
+      }
+    }
+
+    if (!userId) {
+      let fallbackUser = await prisma.user.findFirst();
+      if (!fallbackUser) {
+        fallbackUser = await prisma.user.create({
+          data: { email: 'system@example.com', name: 'System User' },
+        });
+      }
+      // Associate contact for future
+      await prisma.contact.update({ where: { id: contact.id }, data: { userId: fallbackUser.id } });
+      userId = fallbackUser.id;
+    }
+
     const note = await prisma.note.create({
       data: {
-        ...validatedData,
+        contactId: validatedData.contactId,
+        content: validatedData.content,
+        isPrivate: validatedData.isPrivate ?? false,
+        mentions: validatedData.mentions || [],
         userId,
       },
       include: {

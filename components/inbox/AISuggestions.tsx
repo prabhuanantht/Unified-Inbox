@@ -10,6 +10,7 @@ interface AISuggestionsProps {
 }
 
 export function AISuggestions({ contactId, onSelect }: AISuggestionsProps) {
+  const [expanded, setExpanded] = useState(false);
   const { data: messages } = useQuery({
     queryKey: ['messages', contactId],
     queryFn: async () => {
@@ -57,10 +58,10 @@ export function AISuggestions({ contactId, onSelect }: AISuggestionsProps) {
 
   if (isLoading) {
     return (
-      <div className="border-t border-border bg-primary/10 p-3">
+      <div className="border-t border-border bg-primary/10 p-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-          <span className="text-xs font-medium text-primary">Generating AI suggestions...</span>
+          <span className="text-sm font-medium text-primary">Generating AI suggestions...</span>
         </div>
       </div>
     );
@@ -71,19 +72,36 @@ export function AISuggestions({ contactId, onSelect }: AISuggestionsProps) {
   }
 
   return (
-    <div className="border-t border-border bg-primary/10 p-3">
-      <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-4 h-4 text-primary" />
-        <span className="text-xs font-medium text-primary">AI Suggestions</span>
+    <div className="border-t border-border bg-primary/10 p-2">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-primary">AI Suggestions</span>
+        </div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-xs text-primary hover:text-primary/80"
+          aria-label={expanded ? 'Collapse suggestions' : 'Expand suggestions'}
+        >
+          {expanded ? 'Hide' : 'Show'}
+        </button>
       </div>
-      <div className="flex flex-wrap gap-2">
+
+      <div
+        className={expanded
+          ? 'flex flex-wrap gap-2'
+          : 'flex flex-wrap gap-2'}
+      >
         {suggestions.suggestions.map((suggestion: string, index: number) => (
           <button
             key={index}
             onClick={() => onSelect(suggestion)}
-            className="px-3 py-1.5 bg-card border border-primary/20 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors"
+            className={expanded
+              ? 'px-3 py-1.5 bg-card border border-primary/20 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors whitespace-nowrap'
+              : 'inline-flex px-3 py-1.5 bg-card border border-primary/20 text-primary text-sm rounded-lg hover:bg-primary/20 transition-colors whitespace-nowrap'}
+            title={suggestion}
           >
-            {suggestion}
+            <span className="line-clamp-1">{suggestion}</span>
           </button>
         ))}
       </div>

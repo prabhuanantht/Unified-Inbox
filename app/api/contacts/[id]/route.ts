@@ -16,12 +16,48 @@ export async function GET(
     
     const contact = await prisma.contact.findUnique({
       where: { id: resolvedParams.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        socialHandles: true,
+        tags: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
         messages: {
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            contactId: true,
+            userId: true,
+            channel: true,
+            direction: true,
+            content: true,
+            status: true,
+            metadata: true,
+            mediaUrls: true,
+            scheduledFor: true,
+            sentAt: true,
+            deliveredAt: true,
+            readAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
         notes: {
           orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            contactId: true,
+            userId: true,
+            content: true,
+            isPrivate: true,
+            mentions: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
       },
     });
@@ -84,10 +120,21 @@ export async function DELETE(
   try {
     // Handle both Next.js 14 and 15 param formats
     const resolvedParams = 'then' in params ? await params : params;
-    
-    await prisma.contact.delete({
+    const contact = await prisma.contact.findUnique({
       where: { id: resolvedParams.id },
+      select: { id: true },
     });
+    if (!contact) {
+      return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
+    // Defensive cleanup in case FK cascade isn't present in current DB
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { contactId: resolvedParams.id } }),
+      prisma.note.deleteMany({ where: { contactId: resolvedParams.id } }),
+      prisma.activityLog.deleteMany({ where: { entityType: 'CONTACT', entityId: resolvedParams.id } }),
+      prisma.contact.delete({ where: { id: resolvedParams.id }, select: { id: true } }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
