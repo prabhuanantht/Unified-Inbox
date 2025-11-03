@@ -6,6 +6,7 @@ import { X, Phone, Mail, Clock, MessageSquare, AtSign, Lock, Unlock, Sparkles, L
 import { formatRelativeDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { EnhancedNoteEditor } from './EnhancedNoteEditor';
 
 interface ContactProfileModalProps {
   open: boolean;
@@ -15,8 +16,6 @@ interface ContactProfileModalProps {
 
 export function ContactProfileModal({ open, onClose, contactId }: ContactProfileModalProps) {
   const [activeTab, setActiveTab] = useState<'timeline' | 'notes'>('timeline');
-  const [newNote, setNewNote] = useState('');
-  const [noteIsPrivate, setNoteIsPrivate] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch contact details
@@ -72,7 +71,6 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
     },
     onSuccess: () => {
       toast.success('Note created successfully');
-      setNewNote('');
       queryClient.invalidateQueries({ queryKey: ['notes', contactId] });
     },
     onError: () => {
@@ -80,13 +78,31 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
     },
   });
 
-  const handleAddNote = () => {
-    if (!newNote.trim()) return;
+  const handleAddNote = (content: string, isPrivate: boolean) => {
+    if (!content.trim()) return;
+    
+    // Extract mentions from content
+    const mentions = extractMentions(content);
+    
     createNote.mutate({
       contactId,
-      content: newNote,
-      isPrivate: noteIsPrivate,
+      content,
+      isPrivate,
+      mentions,
     });
+  };
+
+  // Extract @mentions from text
+  const extractMentions = (text: string): string[] => {
+    const mentions: string[] = [];
+    const mentionRegex = /@(\w+(?:\s+\w+)*)/g;
+    let match;
+    
+    while ((match = mentionRegex.exec(text)) !== null) {
+      mentions.push(match[1]);
+    }
+    
+    return [...new Set(mentions)]; // Remove duplicates
   };
 
   // Generate timeline from messages
@@ -254,35 +270,12 @@ export function ContactProfileModal({ open, onClose, contactId }: ContactProfile
 
             {activeTab === 'notes' && (
               <div className="space-y-4">
-                {/* Add Note Form */}
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <textarea
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Add a note about this contact... Use @username for mentions"
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
-                    rows={3}
-                  />
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => setNoteIsPrivate(!noteIsPrivate)}
-                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {noteIsPrivate ? (
-                        <><Lock className="w-4 h-4" /> Private</>
-                      ) : (
-                        <><Unlock className="w-4 h-4" /> Public</>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleAddNote}
-                      disabled={!newNote.trim() || createNote.isPending}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {createNote.isPending ? 'Adding...' : 'Add Note'}
-                    </button>
-                  </div>
-                </div>
+                {/* Add Note Form with Enhanced Editor */}
+                <EnhancedNoteEditor
+                  contactId={contactId}
+                  onAddNote={handleAddNote}
+                  isLoading={createNote.isPending}
+                />
 
                 {/* Notes List */}
                 {notes && notes.length > 0 ? (
