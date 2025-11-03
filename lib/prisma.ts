@@ -1,13 +1,29 @@
 import { PrismaClient } from '@prisma/client';
+import { withAccelerate } from '@prisma/extension-accelerate';
 
+// For Next.js hot reload
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
+  prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ['query', 'error', 'warn'],
+function createPrismaClient() {
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
+  
+  // Always extend with Accelerate - no conditional logic
+  return client.$extends(withAccelerate()) as any;
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Always create extended client for Accelerate
+// Force create a new one if global doesn't exist or isn't extended
+const existingPrisma = globalForPrisma.prisma;
+const prisma = existingPrisma ?? createPrismaClient();
+
+// Ensure we always use the extended client (overwrite if needed in dev)
+if (process.env.NODE_ENV !== 'production') {
+  // Force overwrite to ensure we always have the extended client
+  globalForPrisma.prisma = prisma;
+}
+
+export { prisma };

@@ -8,19 +8,22 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String   @id @default(cuid())
+  email         String   @unique
   name          String?
   password      String?
-  role          UserRole  @default(EDITOR)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          UserRole @default(EDITOR)
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   sessions      Session[]
+  accounts      Account[]
   contacts      Contact[]
   messages      Message[]
   notes         Note[]
-  sentMessages  Message[] @relation("SentMessages")
+  sentMessages  Message[]      @relation("SentMessages")
   settings      UserSettings?
   notifications Notification[]
 
@@ -33,11 +36,47 @@ model Session {
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, value])
+  @@index([identifier, value])
 }
 
 model Contact {
@@ -51,9 +90,9 @@ model Contact {
   updatedAt     DateTime @updatedAt
   userId        String
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages      Message[]
-  notes         Note[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+  notes    Note[]
 
   @@index([userId])
   @@index([phone])
@@ -61,26 +100,26 @@ model Contact {
 }
 
 model Message {
-  id              String        @id @default(cuid())
-  contactId       String
-  userId          String
-  senderId        String?
-  channel         Channel
-  direction       Direction
-  content         String        @db.Text
-  status          MessageStatus @default(PENDING)
-  metadata        Json?
-  mediaUrls       String[]
-  scheduledFor    DateTime?
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  readAt          DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id           String        @id @default(cuid())
+  contactId    String
+  userId       String
+  senderId     String?
+  channel      Channel
+  direction    Direction
+  content      String        @db.Text
+  status       MessageStatus @default(PENDING)
+  metadata     Json?
+  mediaUrls    String[]
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  readAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sender          User?         @relation("SentMessages", fields: [senderId], references: [id])
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender  User?   @relation("SentMessages", fields: [senderId], references: [id])
 
   @@index([contactId])
   @@index([userId])
@@ -90,30 +129,30 @@ model Message {
 }
 
 model Note {
-  id          String     @id @default(cuid())
-  contactId   String
-  userId      String
-  content     String     @db.Text
-  isPrivate   Boolean    @default(false)
-  mentions    String[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        String   @id @default(cuid())
+  contactId String
+  userId    String
+  content   String   @db.Text
+  isPrivate Boolean  @default(false)
+  mentions  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  contact     Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
   @@index([userId])
 }
 
 model ActivityLog {
-  id          String   @id @default(cuid())
-  action      String
-  entityType  String
-  entityId    String
-  userId      String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  userId     String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
   @@index([entityType, entityId])
   @@index([userId])
@@ -121,36 +160,36 @@ model ActivityLog {
 }
 
 model UserSettings {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  emailNotifications Boolean @default(true)
-  pushNotifications   Boolean @default(true)
-  soundEnabled    Boolean @default(true)
-  theme           String   @default("light")
-  language        String   @default("en")
-  timezone        String?
-  autoReply       Boolean  @default(false)
-  aiSuggestions   Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  soundEnabled       Boolean  @default(true)
+  theme              String   @default("light")
+  language           String   @default("en")
+  timezone           String?
+  autoReply          Boolean  @default(false)
+  aiSuggestions      Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  type        String
-  title       String
-  message     String   @db.Text
-  read        Boolean  @default(false)
-  link        String?
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  link      String?
+  metadata  Json?
+  createdAt DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([read])

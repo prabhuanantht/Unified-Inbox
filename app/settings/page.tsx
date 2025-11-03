@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Settings as SettingsIcon, Bell, Palette, Globe, Zap, Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -107,11 +108,23 @@ export default function SettingsPage() {
 
 function GeneralSettings({ settings, onSave }: any) {
   const [formData, setFormData] = useState({
-    language: settings?.language || 'en',
-    timezone: settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-    aiSuggestions: settings?.aiSuggestions ?? true,
-    autoReply: settings?.autoReply ?? false,
+    language: 'en',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    aiSuggestions: true,
+    autoReply: false,
   });
+
+  // Update form data when settings load
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        language: settings.language || 'en',
+        timezone: settings.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        aiSuggestions: settings.aiSuggestions ?? true,
+        autoReply: settings.autoReply ?? false,
+      });
+    }
+  }, [settings]);
 
   return (
     <div className="space-y-6">
@@ -208,10 +221,21 @@ function GeneralSettings({ settings, onSave }: any) {
 
 function NotificationSettings({ settings, onSave }: any) {
   const [formData, setFormData] = useState({
-    emailNotifications: settings?.emailNotifications ?? true,
-    pushNotifications: settings?.pushNotifications ?? true,
-    soundEnabled: settings?.soundEnabled ?? true,
+    emailNotifications: true,
+    pushNotifications: true,
+    soundEnabled: true,
   });
+
+  // Update form data when settings load
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        emailNotifications: settings.emailNotifications ?? true,
+        pushNotifications: settings.pushNotifications ?? true,
+        soundEnabled: settings.soundEnabled ?? true,
+      });
+    }
+  }, [settings]);
 
   return (
     <div className="space-y-6">

@@ -14,6 +14,7 @@ interface ComposerProps {
 
 export function Composer({ contactId }: ComposerProps) {
   const [content, setContent] = useState('');
+  const [subject, setSubject] = useState(''); // For EMAIL channel
   const [channel, setChannel] = useState<'SMS' | 'WHATSAPP' | 'EMAIL' | 'FACEBOOK' | 'TWITTER' | 'INSTAGRAM' | 'SLACK'>('SMS');
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [scheduledFor, setScheduledFor] = useState<Date | null>(null);
@@ -23,7 +24,7 @@ export function Composer({ contactId }: ComposerProps) {
   const queryClient = useQueryClient();
 
   const sendMessage = useMutation({
-    mutationFn: async (data: { contactId: string; channel: string; content: string; mediaUrls?: string[]; scheduledFor?: Date | null }) => {
+    mutationFn: async (data: { contactId: string; channel: string; content: string; subject?: string; mediaUrls?: string[]; scheduledFor?: Date | null }) => {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,7 +33,11 @@ export function Composer({ contactId }: ComposerProps) {
           scheduledFor: data.scheduledFor?.toISOString() || undefined,
         }),
       });
-      if (!res.ok) throw new Error('Failed to send message');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const errorMessage = errorData.error || 'Failed to send message';
+        throw new Error(errorMessage);
+      }
       return res.json();
     },
     onSuccess: (_, variables) => {
@@ -41,6 +46,7 @@ export function Composer({ contactId }: ComposerProps) {
       queryClient.invalidateQueries({ queryKey: ['contacts'] }); // Update thread list
       const wasScheduled = !!variables.scheduledFor;
       setContent('');
+      setSubject('');
       setMediaUrls([]);
       setScheduledFor(null);
       toast.success(wasScheduled ? 'Message scheduled successfully' : 'Message sent successfully');
@@ -54,7 +60,14 @@ export function Composer({ contactId }: ComposerProps) {
 
   const handleSend = () => {
     if (!content.trim() && mediaUrls.length === 0) return;
-    sendMessage.mutate({ contactId, channel, content, mediaUrls, scheduledFor });
+    sendMessage.mutate({ 
+      contactId, 
+      channel, 
+      content, 
+      subject: channel === 'EMAIL' ? subject : undefined,
+      mediaUrls, 
+      scheduledFor 
+    });
   };
 
   const handleSchedule = (dateTime: Date) => {
@@ -202,6 +215,22 @@ export function Composer({ contactId }: ComposerProps) {
           </div>
         )}
 
+        {/* Email subject field - only show for EMAIL channel */}
+        {channel === 'EMAIL' && (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Subject (optional)"
+              className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="text-xs text-muted-foreground bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg px-3 py-2">
+              💡 <strong>Free tier note:</strong> With onboarding@resend.dev, you can only send to your own verified email address. To send to any recipient, verify a domain at <a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline">resend.com/domains</a> and set RESEND_FROM_EMAIL in .env
+            </div>
+          </div>
+        )}
+
         {/* Message input area */}
         <div className="flex gap-2 items-end">
           <div className="flex-1 relative">
@@ -209,14 +238,14 @@ export function Composer({ contactId }: ComposerProps) {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && channel !== 'EMAIL') {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              placeholder="Type your message..."
+              placeholder={channel === 'EMAIL' ? 'Email body...' : 'Type your message...'}
               className="w-full px-4 py-3 pr-20 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-              rows={3}
+              rows={channel === 'EMAIL' ? 5 : 3}
             />
             <div className="absolute right-2 bottom-2 flex items-center gap-1">
               <EmojiPicker onSelect={handleEmojiSelect} />

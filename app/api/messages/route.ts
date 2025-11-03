@@ -230,21 +230,27 @@ export async function POST(req: NextRequest) {
         // Prepare send params with email-specific fields
         const sendParams: any = {
           to: recipient,
-          content: validatedData.content,
+          content: validatedData.content || '',
           mediaUrls: validatedData.mediaUrls,
         };
 
-        // Handle email replies
-        if (validatedData.channel === 'EMAIL' && validatedData.replyToMessageId) {
-          const originalMessage = await prisma.message.findUnique({
-            where: { id: validatedData.replyToMessageId },
-          });
-          if (originalMessage?.metadata) {
-            const meta = originalMessage.metadata as any;
-            sendParams.subject = meta.emailSubject 
-              ? (meta.emailSubject.startsWith('Re:') ? meta.emailSubject : `Re: ${meta.emailSubject}`)
-              : 'Re: Message';
-            sendParams.replyTo = meta.emailMessageId || originalMessage.id;
+        // Handle email-specific fields
+        if (validatedData.channel === 'EMAIL') {
+          // Handle email replies
+          if (validatedData.replyToMessageId) {
+            const originalMessage = await prisma.message.findUnique({
+              where: { id: validatedData.replyToMessageId },
+            });
+            if (originalMessage?.metadata) {
+              const meta = originalMessage.metadata as any;
+              sendParams.subject = meta.emailSubject 
+                ? (meta.emailSubject.startsWith('Re:') ? meta.emailSubject : `Re: ${meta.emailSubject}`)
+                : 'Re: Message';
+              sendParams.replyTo = meta.emailMessageId || originalMessage.id;
+            }
+          } else if (validatedData.subject) {
+            // Use provided subject for new emails
+            sendParams.subject = validatedData.subject;
           }
         }
 

@@ -12,6 +12,7 @@ export const messageSchema = z.object({
   contactId: z.string().cuid(),
   channel: z.enum(['SMS', 'WHATSAPP', 'EMAIL', 'TWITTER', 'FACEBOOK', 'INSTAGRAM', 'SLACK']),
   content: z.string().optional(),
+  subject: z.string().optional(), // For EMAIL channel
   mediaUrls: z.array(z.string()).optional(),
   replyToMessageId: z.string().optional(),
   scheduledFor: z.union([z.string(), z.date()]).optional().transform((val) => {
@@ -19,7 +20,12 @@ export const messageSchema = z.object({
     return typeof val === 'string' ? val : val.toISOString();
   }),
 }).refine((data) => {
-  // Either content or mediaUrls must be provided
+  // For EMAIL, either content or subject+content must be provided
+  // For other channels, either content or mediaUrls must be provided
+  if (data.channel === 'EMAIL') {
+    return (data.content && data.content.trim().length > 0) || 
+           (data.mediaUrls && data.mediaUrls.length > 0);
+  }
   return (data.content && data.content.trim().length > 0) || (data.mediaUrls && data.mediaUrls.length > 0);
 }, {
   message: 'Either message content or media attachment is required',

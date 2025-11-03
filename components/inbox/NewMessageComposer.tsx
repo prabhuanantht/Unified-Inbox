@@ -14,6 +14,7 @@ export function NewMessageComposer({ onClose }: NewMessageComposerProps) {
   const [channel, setChannel] = useState<'SMS' | 'WHATSAPP' | 'EMAIL' | 'FACEBOOK' | 'TWITTER' | 'INSTAGRAM' | 'SLACK'>('SMS');
   const [recipient, setRecipient] = useState('');
   const [content, setContent] = useState('');
+  const [subject, setSubject] = useState(''); // For EMAIL channel
   const [isSending, setIsSending] = useState(false);
   const queryClient = useQueryClient();
 
@@ -85,6 +86,7 @@ export function NewMessageComposer({ onClose }: NewMessageComposerProps) {
           contactId: contact.id,
           channel,
           content,
+          subject: channel === 'EMAIL' ? subject : undefined,
         }),
       });
 
@@ -100,6 +102,7 @@ export function NewMessageComposer({ onClose }: NewMessageComposerProps) {
       
       toast.success('Message sent successfully!');
       setContent('');
+      setSubject('');
       setRecipient('');
       onClose();
     } catch (error) {
@@ -175,15 +178,31 @@ export function NewMessageComposer({ onClose }: NewMessageComposerProps) {
             />
           </div>
 
+          {/* Subject field - only for EMAIL */}
+          {channel === 'EMAIL' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Subject
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Email subject (optional)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Message
+              {channel === 'EMAIL' ? 'Body' : 'Message'}
             </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Type your message..."
-              rows={4}
+              placeholder={channel === 'EMAIL' ? 'Email body...' : 'Type your message...'}
+              rows={channel === 'EMAIL' ? 6 : 4}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>

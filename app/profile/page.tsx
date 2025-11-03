@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { User as UserIcon, Mail, Shield, Save, Camera } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,31 +28,39 @@ export default function ProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to update profile');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update profile');
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       toast.success('Profile updated successfully');
     },
-    onError: () => {
-      toast.error('Failed to update profile');
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      toast.error(message);
+      console.error('Profile update error:', error);
     },
   });
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    role: user?.role || 'EDITOR',
+    role: (user?.role || 'EDITOR') as 'VIEWER' | 'EDITOR' | 'ADMIN',
   });
 
-  if (user && !formData.name) {
-    setFormData({
-      name: user.name || '',
-      email: user.email || '',
-      role: user.role || 'EDITOR',
-    });
-  }
+  // Update form data when user data loads (using useEffect to avoid setState in render)
+  React.useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        role: (user.role || 'EDITOR') as 'VIEWER' | 'EDITOR' | 'ADMIN',
+      });
+    }
+  }, [user]);
 
   const handleSave = () => {
     updateUser.mutate(formData);
