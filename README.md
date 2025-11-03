@@ -38,7 +38,7 @@ A full-stack Next.js application for managing customer communications across SMS
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/prabhuanantht/Unified-Inbox.git
 cd unified-inbox
 ```
 
