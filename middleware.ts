@@ -1,62 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  // Dev bypass: allow everything when enabled (and avoid importing auth/prisma)
-  if (process.env.DEV_DISABLE_AUTH === 'true') {
-    return NextResponse.next();
-  }
-
-  try {
-    // Dynamically import auth only when needed to avoid Edge bundling issues
-    const { auth } = await import('./lib/auth');
-
-    const session = await auth.api.getSession({ 
-      headers: request.headers 
-    });
-
-    // Public routes that don't require authentication
-    const publicRoutes = ['/', '/login', '/register'];
-    const isPublicRoute = publicRoutes.some(route => 
-      request.nextUrl.pathname === route
-    );
-
-    // Allow public routes and auth API routes
-    if (isPublicRoute || request.nextUrl.pathname.startsWith('/api/auth')) {
-      return NextResponse.next();
-    }
-
-    // Redirect to login if not authenticated
-    if (!session?.user) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    // Add user info to headers for API routes
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', session.user.id);
-    requestHeaders.set('x-user-role', (session.user as any).role || 'EDITOR');
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
-  } catch (error) {
-    console.error('Middleware error:', error);
-    // On error, allow the request to proceed in dev rather than blocking the app
-    if (process.env.NODE_ENV === 'development') {
-      return NextResponse.next();
-    }
-    // In production, redirect to login on error
-    if (!request.nextUrl.pathname.startsWith('/api/auth') && 
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/register') &&
-        request.nextUrl.pathname !== '/') {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    return NextResponse.next();
-  }
+// NOTE: Avoid importing Better Auth in middleware; Edge runtime forbids dynamic
+// code evaluation used by that package. Middleware will only exclude static
+// assets and let requests pass through. Auth is enforced inside API routes/pages.
+export async function middleware(_request: NextRequest) {
+  return NextResponse.next();
 }
 
 export const config = {
