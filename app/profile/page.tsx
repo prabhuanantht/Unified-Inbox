@@ -9,6 +9,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 
+export const dynamic = 'force-dynamic';
+
 export default function ProfilePage() {
   const queryClient = useQueryClient();
 

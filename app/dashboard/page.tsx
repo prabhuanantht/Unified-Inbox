@@ -7,6 +7,8 @@ import { AnalyticsDashboard } from '@/components/analytics/AnalyticsDashboard';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MainLayout } from '@/components/layout/MainLayout';
 
+export const dynamic = 'force-dynamic';
+
 export default function DashboardPage() {
   const [selectedView, setSelectedView] = useState<'inbox' | 'contacts' | 'analytics'>('inbox');
 

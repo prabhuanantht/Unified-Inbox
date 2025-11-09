@@ -9,6 +9,8 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { BackButton } from '@/components/ui/back-button';
 
+export const dynamic = 'force-dynamic';
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'appearance' | 'integrations'>('general');
   const queryClient = useQueryClient();

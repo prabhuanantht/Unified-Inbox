@@ -2,8 +2,13 @@ import { z } from 'zod';
 
 export const contactSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
+  phone: z.string().optional().transform((v) => (v === '' ? undefined : v)),
+  email: z
+    .union([z.string().email(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
+  phones: z.array(z.string()).optional(),
+  emails: z.array(z.string().email()).optional(),
   socialHandles: z.record(z.string()).optional(),
   tags: z.array(z.string()).optional(),
 });

@@ -191,6 +191,8 @@ export async function POST(req: NextRequest) {
         name: validatedData.name,
         phone: validatedData.phone,
         email: validatedData.email,
+        phones: validatedData.phones || [],
+        emails: validatedData.emails || [],
         socialHandles: validatedData.socialHandles,
         tags: validatedData.tags || [],
         userId,

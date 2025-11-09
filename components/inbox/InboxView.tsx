@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { UnifiedInboxFeed } from './UnifiedInboxFeed';
 import { ThreadList } from './ThreadList';
 import { MessageThread } from './MessageThread';
@@ -57,7 +57,9 @@ export function InboxView() {
           />
         </div>
         <div className="flex-1 min-h-0 min-w-0">
-          <UnifiedInboxFeed />
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground">Loading...</div>}>
+            <UnifiedInboxFeed />
+          </Suspense>
         </div>
       </div>
     );

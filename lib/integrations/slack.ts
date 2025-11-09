@@ -240,5 +240,35 @@ export class SlackIntegration implements ChannelIntegration {
       return null;
     }
   }
+
+  /**
+   * Get channel info by channel ID (works for public/private channels and group DMs if permitted)
+   */
+  async getChannelInfo(channelId: string): Promise<{ name: string } | null> {
+    try {
+      if (!this.botToken) return null;
+
+      const response = await fetch(`https://slack.com/api/conversations.info?channel=${channelId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.botToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!result.ok || !result.channel) {
+        return null;
+      }
+
+      // Prefer name, fallback to 'id' if name missing (e.g., IMs/MPIMs)
+      return {
+        name: result.channel.name || result.channel.user || channelId,
+      };
+    } catch (error) {
+      console.error('Error fetching Slack channel info:', error);
+      return null;
+    }
+  }
 }
 

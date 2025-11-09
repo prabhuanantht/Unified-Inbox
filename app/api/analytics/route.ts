@@ -110,7 +110,13 @@ export async function GET(req: NextRequest) {
     // =============================
     // Call analytics (Twilio voice via metadata.voiceCall)
     // =============================
-    const callCandidates = await prisma.message.findMany({
+    type CallCandidate = {
+      createdAt: Date;
+      status: string;
+      metadata: any | null;
+    };
+
+    const callCandidates: CallCandidate[] = await prisma.message.findMany({
       where: shouldFilterByUser ? {
         userId,
         createdAt: { gte: startDate },
@@ -127,13 +133,13 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'asc' },
     });
 
-    const callMessages = callCandidates.filter((m) => (m.metadata as any)?.voiceCall === true);
+    const callMessages = callCandidates.filter((m: CallCandidate) => (m.metadata as any)?.voiceCall === true);
 
     const totalCalls = callMessages.length;
 
     // Calls by type (IMMEDIATE vs SCHEDULED)
     const callsByTypeMap = new Map<string, number>();
-    callMessages.forEach((m) => {
+    callMessages.forEach((m: CallCandidate) => {
       const callType = (m.metadata as any)?.callType || 'UNKNOWN';
       callsByTypeMap.set(callType, (callsByTypeMap.get(callType) || 0) + 1);
     });
@@ -141,14 +147,14 @@ export async function GET(req: NextRequest) {
 
     // Calls by status
     const callsByStatusMap = new Map<string, number>();
-    callMessages.forEach((m) => {
+    callMessages.forEach((m: CallCandidate) => {
       callsByStatusMap.set(m.status, (callsByStatusMap.get(m.status) || 0) + 1);
     });
     const callsByStatus = Array.from(callsByStatusMap.entries()).map(([status, _count]) => ({ status, _count }));
 
     // Daily calls
     const dailyCallsMap = new Map<string, number>();
-    callMessages.forEach((m) => {
+    callMessages.forEach((m: CallCandidate) => {
       const date = m.createdAt.toISOString().split('T')[0];
       dailyCallsMap.set(date, (dailyCallsMap.get(date) || 0) + 1);
     });
