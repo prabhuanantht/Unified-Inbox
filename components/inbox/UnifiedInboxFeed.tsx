@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatRelativeDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { MessageSquare, Phone, Mail, MessageCircle, RefreshCw, Reply, Plus, SlidersHorizontal, X } from 'lucide-react';
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { NewMessageComposer } from './NewMessageComposer';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -61,6 +61,12 @@ export function UnifiedInboxFeed() {
   const [replyContent, setReplyContent] = useState('');
   const [showNewMessage, setShowNewMessage] = useState(false);
   const queryClient = useQueryClient();
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [timeTick, setTimeTick] = useState(0); // Used to trigger re-renders for relative time display
+  const lastSyncTimeRef = useRef<Date | null>(null);
+  const isSyncingRef = useRef(false);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep local state in sync if URL changes externally
   useEffect(() => {
@@ -80,22 +86,42 @@ export function UnifiedInboxFeed() {
 
   // Sync messages mutation
   const syncMessages = useMutation({
-    mutationFn: async (channels?: string[]) => {
-      const res = await fetch('/api/sync/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channels, limit: 10000 }), // Fetch up to 10,000 messages per channel for full history
-      });
-      if (!res.ok) throw new Error('Failed to sync messages');
-      return res.json();
+    mutationFn: async ({ channels, silent = false }: { channels?: string[]; silent?: boolean } = {}) => {
+      // Prevent overlapping syncs
+      if (isSyncingRef.current) {
+        throw new Error('Sync already in progress');
+      }
+      isSyncingRef.current = true;
+      
+      try {
+        const res = await fetch('/api/sync/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channels, limit: 10000 }), // Fetch up to 10,000 messages per channel for full history
+        });
+        if (!res.ok) throw new Error('Failed to sync messages');
+        return { ...(await res.json()), silent };
+      } finally {
+        isSyncingRef.current = false;
+      }
     },
     onSuccess: (data) => {
+      const now = new Date();
+      setLastSyncTime(now);
+      lastSyncTimeRef.current = now;
       queryClient.invalidateQueries({ queryKey: ['messages'] });
-      const count = data.synced || data.syncedMessages?.length || 0;
-      toast.success(`Synced ${count} messages from all channels`);
+      // Only show toast for manual syncs (not silent/automatic ones)
+      if (!data.silent) {
+        const count = data.synced || data.syncedMessages?.length || 0;
+        toast.success(`Synced ${count} messages from all channels`);
+      }
     },
-    onError: (error) => {
-      toast.error(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    onError: (error, variables) => {
+      isSyncingRef.current = false;
+      // Only show error toast for manual syncs
+      if (!variables?.silent) {
+        toast.error(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     },
   });
 
@@ -162,6 +188,69 @@ export function UnifiedInboxFeed() {
     refetchInterval: 5000, // Poll every 5 seconds for new messages in unified feed (works in background by default)
   });
 
+  // Store sync mutate function in ref to avoid dependency issues
+  const syncMutateRef = useRef(syncMessages.mutate);
+  useEffect(() => {
+    syncMutateRef.current = syncMessages.mutate;
+  }, [syncMessages.mutate]);
+
+  // Automatic periodic syncing to fetch new messages from integrations
+  // This ensures messages appear even if webhooks aren't configured
+  useEffect(() => {
+    const MIN_SYNC_INTERVAL = 5 * 60 * 1000; // Minimum 5 minutes between syncs
+    const AUTO_SYNC_INTERVAL = 10 * 60 * 1000; // Auto sync every 10 minutes
+    
+    const performSync = () => {
+      // Check if we're already syncing
+      if (isSyncingRef.current) {
+        return;
+      }
+      
+      // Check if enough time has passed since last sync (using ref to avoid closure issues)
+      if (lastSyncTimeRef.current) {
+        const timeSinceLastSync = Date.now() - lastSyncTimeRef.current.getTime();
+        if (timeSinceLastSync < MIN_SYNC_INTERVAL) {
+          // Too soon since last sync, skip this one
+          return;
+        }
+      }
+      
+      // Perform silent sync using ref
+      syncMutateRef.current({ silent: true });
+    };
+
+    // Sync once after initial mount (wait a bit for initial query to finish)
+    syncTimeoutRef.current = setTimeout(() => {
+      performSync();
+    }, 5000); // Wait 5 seconds after mount
+
+    // Set up periodic syncing every 10 minutes
+    syncIntervalRef.current = setInterval(() => {
+      performSync();
+    }, AUTO_SYNC_INTERVAL);
+
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+      }
+    };
+  }, []); // Empty deps - only run once on mount
+
+  // Update last sync time display periodically to show "X ago" updating
+  useEffect(() => {
+    if (!lastSyncTime) return;
+    
+    const interval = setInterval(() => {
+      // Force re-render to update the relative time display
+      setTimeTick(prev => prev + 1);
+    }, 30000); // Update every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [lastSyncTime]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -196,7 +285,14 @@ export function UnifiedInboxFeed() {
         <div className="border-b border-border bg-card">
           {/* Top row: Action buttons */}
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="text-lg font-semibold text-foreground">Unified Inbox</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-foreground">Unified Inbox</h2>
+              {lastSyncTime && (
+                <span className="text-xs text-muted-foreground">
+                  Last synced: {formatRelativeDate(lastSyncTime)}
+                </span>
+              )}
+            </div>
             <div className="flex gap-2 relative">
               <button
                 onClick={() => setShowNewMessage(true)}
@@ -207,7 +303,7 @@ export function UnifiedInboxFeed() {
                 <span className="hidden sm:inline">New</span>
               </button>
               <button
-                onClick={() => syncMessages.mutate(undefined)}
+                onClick={() => syncMessages.mutate({})}
                 disabled={syncMessages.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium"
                 title="Sync All Messages"
@@ -395,7 +491,14 @@ export function UnifiedInboxFeed() {
       <div className="border-b border-border bg-card">
         {/* Top row: Action buttons */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">Unified Inbox</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-foreground">Unified Inbox</h2>
+            {lastSyncTime && (
+              <span className="text-xs text-muted-foreground">
+                Last synced: {formatRelativeDate(lastSyncTime)}
+              </span>
+            )}
+          </div>
           <div className="flex gap-2 relative">
             <button
               onClick={() => setShowNewMessage(true)}
@@ -406,7 +509,7 @@ export function UnifiedInboxFeed() {
               <span className="hidden sm:inline">New</span>
             </button>
             <button
-              onClick={() => syncMessages.mutate(undefined)}
+              onClick={() => syncMessages.mutate({})}
               disabled={syncMessages.isPending}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-medium"
               title="Sync All Messages"

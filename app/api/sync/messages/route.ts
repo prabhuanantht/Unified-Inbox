@@ -60,18 +60,41 @@ export async function POST(req: NextRequest) {
           });
 
           if (!existing) {
+            const isInbound = msg.direction === 'inbound';
+            // For inbound messages, they're already received, so mark as DELIVERED
+            // For outbound messages, map Twilio status to our status
+            let messageStatus: string;
+            if (isInbound) {
+              messageStatus = 'DELIVERED';
+            } else {
+              // Map Twilio outbound statuses
+              const twilioStatus = (msg.status || '').toLowerCase();
+              if (twilioStatus === 'delivered') {
+                messageStatus = 'DELIVERED';
+              } else if (twilioStatus === 'sent') {
+                messageStatus = 'SENT';
+              } else if (twilioStatus === 'failed' || twilioStatus === 'undelivered') {
+                messageStatus = 'FAILED';
+              } else if (twilioStatus === 'queued' || twilioStatus === 'sending') {
+                messageStatus = 'PENDING';
+              } else {
+                messageStatus = 'SENT'; // Default for outbound
+              }
+            }
+
             const message = await prisma.message.create({
               data: {
                 contactId: contact.id,
                 userId: user.id,
                 channel: 'SMS',
-                direction: msg.direction === 'inbound' ? 'INBOUND' : 'OUTBOUND',
+                direction: isInbound ? 'INBOUND' : 'OUTBOUND',
                 content: msg.body || '',
-                status: msg.status === 'delivered' ? 'DELIVERED' : 'PENDING',
+                status: messageStatus as any,
                 mediaUrls: msg.mediaUrls || [],
                 metadata: { twilioSid: msg.id },
                 sentAt: msg.dateSent ? new Date(msg.dateSent) : new Date(),
                 createdAt: msg.dateSent ? new Date(msg.dateSent) : new Date(),
+                deliveredAt: isInbound && messageStatus === 'DELIVERED' ? (msg.dateSent ? new Date(msg.dateSent) : new Date()) : undefined,
               },
             });
             syncedMessages.push(message);
@@ -111,18 +134,41 @@ export async function POST(req: NextRequest) {
           });
 
           if (!existing) {
+            const isInbound = msg.direction === 'inbound';
+            // For inbound messages, they're already received, so mark as DELIVERED
+            // For outbound messages, map Twilio status to our status
+            let messageStatus: string;
+            if (isInbound) {
+              messageStatus = 'DELIVERED';
+            } else {
+              // Map Twilio outbound statuses
+              const twilioStatus = (msg.status || '').toLowerCase();
+              if (twilioStatus === 'delivered') {
+                messageStatus = 'DELIVERED';
+              } else if (twilioStatus === 'sent') {
+                messageStatus = 'SENT';
+              } else if (twilioStatus === 'failed' || twilioStatus === 'undelivered') {
+                messageStatus = 'FAILED';
+              } else if (twilioStatus === 'queued' || twilioStatus === 'sending') {
+                messageStatus = 'PENDING';
+              } else {
+                messageStatus = 'SENT'; // Default for outbound
+              }
+            }
+
             const message = await prisma.message.create({
               data: {
                 contactId: contact.id,
                 userId: user.id,
                 channel: 'WHATSAPP',
-                direction: msg.direction === 'inbound' ? 'INBOUND' : 'OUTBOUND',
+                direction: isInbound ? 'INBOUND' : 'OUTBOUND',
                 content: msg.body || '',
-                status: msg.status === 'delivered' ? 'DELIVERED' : 'PENDING',
+                status: messageStatus as any,
                 mediaUrls: msg.mediaUrls || [],
                 metadata: { twilioSid: msg.id },
                 sentAt: msg.dateSent ? new Date(msg.dateSent) : new Date(),
                 createdAt: msg.dateSent ? new Date(msg.dateSent) : new Date(),
+                deliveredAt: isInbound && messageStatus === 'DELIVERED' ? (msg.dateSent ? new Date(msg.dateSent) : new Date()) : undefined,
               },
             });
             syncedMessages.push(message);
